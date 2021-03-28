@@ -35,3 +35,4 @@ gcloud.env
 backend.tf
 iam.txt
 .terraform.lock.hcl
+terraform.tfvars

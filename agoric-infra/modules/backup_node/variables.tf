@@ -36,7 +36,12 @@ variable network_id {
 
 variable network_name {
   type        = string
-  description = "Name of the GCP network the tx-node VM is in"
+  description = "Name of the GCP network the node VM is in"
+}
+
+variable network_uri {
+  type        = string
+  description = "URI for the Agoric network"
 }
 
 variable backup_node_count {

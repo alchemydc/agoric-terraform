@@ -62,7 +62,10 @@ resource "google_compute_firewall" "agoric_telemetry_firewall" {
 
   #source_ranges = 142.93.181.215    # prometheus.testnet.agoric.net   # todo: make var
   # allow connections to the prometheus ports from the VPC as well as from prometheus.testnet.agoric.net
-  source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range], "142.93.181.215")
+  #source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range], "142.93.181.215/24")
+  #source_ranges = ["142.93.181.215/24"]
+  source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range], ["142.93.181.215/24"])
+
 
   allow {
     protocol = "tcp"
@@ -86,6 +89,7 @@ module "backup_node" {
   agoric_node_release_tag               = var.agoric_node_release_tag
   network_id                            = var.network_id
   network_name                          = var.network_name
+  network_uri                           = var.network_uri
   backup_node_count                     = var.backup_node_count
   service_account_scopes                = var.service_account_scopes
 }

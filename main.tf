@@ -34,7 +34,7 @@ data "google_compute_subnetwork" "agoric_subnetwork" {
 resource "google_compute_router" "router" {
   name    = "${var.agoric_env}-celo-router"
   region  = data.google_compute_subnetwork.agoric_subnetwork.region
-  network = google_compute_network.celo_network.self_link
+  network = google_compute_network.agoric_network.self_link
 
   bgp {
     asn = 64514
@@ -62,7 +62,8 @@ module "agoric_cluster" {
   gcloud_region           = var.google["region"]
   gcloud_zone             = var.google["zone"]
   network_name            = google_compute_network.agoric_network.name
-  celo_env                = var.agoric_env
+  network_uri             = var.network_uri
+  agoric_env              = var.agoric_env
   instance_types          = var.instance_types
   service_account_scopes  = var.service_account_scopes
 
@@ -72,18 +73,14 @@ module "agoric_cluster" {
   backup_node_count   = var.replicas["backup_node"]
   validator_count     = var.replicas["validator"]
 
-  validator_signer_account_addresses = var.validator_signer_accounts["account_addresses"]
-  validator_signer_private_keys      = var.validator_signer_accounts["private_keys"]
-  validator_signer_account_passwords = var.validator_signer_accounts["account_passwords"]
-
   validator_name = var.validator_name
 
   reset_chain_data = var.reset_chain_data
 
-  agoric_node_github_repository         = var.agoric_node_release["repository"]
-  agoric_node_github_tag                = var.agoric_node_release["tag"]
-  network_id                            = var.network_id
-  block_time                            = var.block_time
+  agoric_node_release_repository         = var.agoric_node_release["repository"]
+  agoric_node_release_tag                = var.agoric_node_release["tag"]
+  network_id                             = var.network_id
+  block_time                             = var.block_time
   
 }
 

@@ -338,9 +338,8 @@ EOF
 #bash /root/restore_rsync.sh
 
 # FIXME:parameterize these as variables and expose properly via terraform
-GIT_BRANCH="@agoric/sdk@2.15.1"
+#GIT_BRANCH="@agoric/sdk@2.15.1"
 MONIKER="ElectricCoinCo"    # fixme
-BASE_URI="https://testnet.agoric.net"
 AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
 #AGORIC_PROMETHEUS_IP="142.93.181.215"
 AGORIC_PROMETHEUS_IP=`$AGORIC_PROMETHEUS_HOSTNAME | cut -d ' ' -f 4`
@@ -382,7 +381,8 @@ EOF
 . $HOME/.profile
 
 cd $DATA_DIR
-git clone https://github.com/Agoric/agoric-sdk -b ${GIT_BRANCH}
+#git clone https://github.com/Agoric/agoric-sdk -b $GIT_BRANCH
+git clone ${agoric_node_release_repository} -b ${agoric_node_release_tag}
 cd agoric-sdk
 
 # Install and build Agoric Javascript packages
@@ -398,7 +398,7 @@ ag-chain-cosmos version --long
 
 cd $DATA_DIR
 # First, get the network config for the current network.
-curl ${BASE_URI}/network-config > chain.json
+curl ${network_uri}/network-config > chain.json
 # Set chain name to the correct value
 chainName=`jq -r .chainName < chain.json`
 # Confirm value: should be something like agoricdev-N.
@@ -407,11 +407,11 @@ echo $chainName
 # Replace <your_moniker> with the public name of your node.
 # NOTE: The `--home` flag (or `AG_CHAIN_COSMOS_HOME` environment variable) determines where the chain state is stored.
 # By default, this is `$HOME/.ag-chain-cosmos`.
-ag-chain-cosmos init --chain-id $chainName ${MONIKER}
+#ag-chain-cosmos init --chain-id $chainName $MONIKER
+ag-chain-cosmos init --chain-id $chainName
 
 # Download the genesis file
-#curl ${BASE_URI}/genesis.json > $HOME/.ag-chain-cosmos/config/genesis.json 
-curl ${BASE_URI}/genesis.json > $DATA_DIR/config/genesis.json 
+curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
 # Reset the state of your validator.
 ag-chain-cosmos unsafe-reset-all
 

@@ -43,6 +43,11 @@ variable network_name {
   description = "The name of the network to use"
 }
 
+variable network_uri {
+  type        = string
+  description = "The URI of the network to use"
+}
+
 variable backup_node_count {
   type        = number
   description = "Number of backup_nodes to create"
@@ -64,27 +69,10 @@ variable gcloud_zone {
   description = "Name of the Google Cloud zone to use"
 }
 
-variable validator_signer_account_addresses {
-  type        = list(string)
-  description = "Array with the Validator etherbase account addresses"
-}
-
-variable validator_signer_private_keys {
-  type        = list(string)
-  description = "Array with the Validator etherbase account private keys"
-}
-
-variable validator_signer_account_passwords {
-  type        = list(string)
-  description = "Array with the Validator etherbase account passwords"
-}
-
 variable reset_chain_data {
   type        = bool
   description = "Specifies if the existing chain data should be removed while creating the instance"
 }
-
-
 
 variable validator_name {
   type        = string

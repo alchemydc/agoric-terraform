@@ -45,19 +45,24 @@ variable agoric_env {
   default = "mainnet"
 }
 
+variable network_uri {
+  description = "The URI for the Agoric network we are connecting to"
+  type        = string
+  default     = "https://testnet.agoric.net"
+}
+
 variable network_id {
   description = "The agoric network ID"
   type        = number
   default     = 42220
 }
 
-
 variable agoric_node_release {
   description = "The Agoric release"
   type        = map(string)
 
   default = {
-    repository = "github.com/Agoric/agoric-sdk"
+    repository = "https://github.com/Agoric/agoric-sdk"
     tag        = "@agoric/sdk@2.15.1"
   }
 }
