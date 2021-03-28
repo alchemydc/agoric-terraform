@@ -55,7 +55,7 @@ resource "google_compute_router_nat" "nat" {
 }
 
 module "agoric_cluster" {
-  source             = "agoric-infra/"
+  source             = "./agoric-infra"
   network_depends_on = [google_compute_network.agoric_network]
 
   gcloud_project          = var.google["project"]
