@@ -61,6 +61,11 @@ variable backup_node_max_peers {
   default     = 120
 }
 
+variable validator_name {
+  type        = string
+  description = "The validator Name"
+}
+
 variable service_account_scopes {
   type        = list(string)
   description = "Scopes to apply to the service account which all nodes in the cluster will inherit"

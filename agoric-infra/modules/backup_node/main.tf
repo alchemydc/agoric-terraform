@@ -64,6 +64,7 @@ resource "google_compute_instance" "backup_node" {
       ip_address : google_compute_address.backup_node[count.index].address,
       max_peers : var.backup_node_max_peers,
       network_id : var.network_id,
+      validator_name : var.validator_name,
       gcloud_project : var.gcloud_project,
       reset_chain_data : var.reset_chain_data,
       rid : count.index,

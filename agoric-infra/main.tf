@@ -86,6 +86,7 @@ module "backup_node" {
   agoric_node_release_tag               = var.agoric_node_release_tag
   network_id                            = var.network_id
   network_name                          = var.network_name
+  validator_name                        = var.validator_name
   network_uri                           = var.network_uri
   backup_node_count                     = var.backup_node_count
   service_account_scopes                = var.service_account_scopes

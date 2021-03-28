@@ -416,7 +416,7 @@ echo $chainName
 # NOTE: The `--home` flag (or `AG_CHAIN_COSMOS_HOME` environment variable) determines where the chain state is stored.
 # By default, this is `$HOME/.ag-chain-cosmos`.
 #ag-chain-cosmos init --chain-id $chainName $MONIKER
-ag-chain-cosmos init --chain-id $chainName
+ag-chain-cosmos init --chain-id $chainName ${validator_name}
 
 # Download the genesis file
 curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
