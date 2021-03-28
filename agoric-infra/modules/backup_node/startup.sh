@@ -40,7 +40,7 @@ cat <<'EOF' > '/etc/logrotate.d/rsyslog'
 EOF
 
 # ---- Tune rsyslog to avoid redundantly logging docker output
-echo "Updating rsyslog.conf to avoid redundantly logging docker output"
+echo "Updating rsyslog.conf to avoid redundantly logging docker output" | logger
 cat <<'EOF' > /etc/rsyslog.conf
 # /etc/rsyslog.conf configuration file for rsyslog
 #
@@ -114,7 +114,7 @@ kern.*                          -/var/log/kern.log
 EOF
 
 # ---- Restart rsyslogd
-echo "Restarting rsyslogd"
+echo "Restarting rsyslogd" | logger
 systemctl restart rsyslog
 
 # ---- Create backup script
@@ -260,7 +260,7 @@ swapon -s
 DISK_PATH=$(readlink -f /dev/disk/by-id/google-${attached_disk_name})
 DATA_DIR=/root/.ag-chain-cosmos
 
-echo "Setting up persistent disk ${attached_disk_name} at $DISK_PATH..."
+echo "Setting up persistent disk ${attached_disk_name} at $DISK_PATH..." | logger
 
 DISK_FORMAT=ext4
 CURRENT_DISK_FORMAT=$(lsblk -i -n -o fstype $DISK_PATH)
@@ -277,7 +277,7 @@ else
 fi
 
 # Mounting the volume
-echo "Mounting $DISK_PATH onto $DATA_DIR"
+echo "Mounting $DISK_PATH onto $DATA_DIR" | logger
 mkdir -p $DATA_DIR
 DISK_UUID=$(blkid $DISK_PATH | cut -d '"' -f2)
 echo "UUID=$DISK_UUID     $DATA_DIR   auto    discard,defaults    0    0" >> /etc/fstab
@@ -346,8 +346,7 @@ EOF
 #bash /root/restore_rsync.sh
 
 # FIXME:parameterize these as variables and expose properly via terraform
-#GIT_BRANCH="@agoric/sdk@2.15.1"
-MONIKER="ElectricCoinCo"    # fixme
+# presently used for local firewall rules, which really should be controlled by variables
 AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
 #AGORIC_PROMETHEUS_IP="142.93.181.215"
 AGORIC_PROMETHEUS_IP=`$AGORIC_PROMETHEUS_HOSTNAME | cut -d ' ' -f 4`
@@ -359,6 +358,7 @@ OTEL_EXPORTER_PROMETHEUS_PORT=9464
 apt update && apt upgrade -y
 
 # Download the nodesource PPA for Node.js
+echo "Installing nodejs and yarn" | logger
 curl https://deb.nodesource.com/setup_12.x |  bash
 
 # Download the Yarn repository configuration
@@ -377,6 +377,7 @@ apt install nodejs=12.* yarn build-essential jq git nftables -y
  rm -rf /usr/local/go
 
 # Install correct Go version
+echo "installing golang" | logger
 curl https://dl.google.com/go/go1.15.7.linux-amd64.tar.gz |  tar -C/usr/local -zxvf -
 
 # Update environment variables to include go
@@ -388,20 +389,20 @@ export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
 . $HOME/.profile
 
+echo "checking out Agoric release from github" | logger
 cd $DATA_DIR
-#git clone https://github.com/Agoric/agoric-sdk -b $GIT_BRANCH
 git clone ${agoric_node_release_repository} -b ${agoric_node_release_tag}
 cd agoric-sdk
 
-# Install and build Agoric Javascript packages
+echo "Install and build Agoric Javascript packages" | logger
 yarn install
 yarn build
 
-# Install and build Agoric Cosmos SDK support
+echo "Install and build Agoric Cosmos SDK support" | logger
 cd packages/cosmic-swingset && make
 
 # test to see agoric SDK is correctly installed
-echo "testing to see agoric SDK is correctly installed"
+echo "testing to see agoric SDK is correctly installed" | logger
 ag-chain-cosmos version --long
 
 cd $DATA_DIR
@@ -435,7 +436,7 @@ sed -i.bak 's/^log_level/# log_level/' $HOME/.ag-chain-cosmos/config/config.toml
 # Replace the seeds and persistent_peers values
 sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.ag-chain-cosmos/config/config.toml
 
-echo "Setting up ag-chain-cosmos service in systemd"
+echo "Setting up ag-chain-cosmos service in systemd" | logger
 tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
 [Unit]
 Description=Agoric Cosmos daemon
@@ -453,7 +454,7 @@ LimitNOFILE=4096
 WantedBy=multi-user.target
 EOF
 
-echo "Configuring firewall rules"
+echo "Configuring firewall rules" | logger
  tee <<EOF >/dev/null /etc/nftables.conf
 #!/usr/sbin/nft -f
 
@@ -484,16 +485,16 @@ table inet filter {
 }
 EOF
 
-echo "Enabling firewall"
+echo "Enabling firewall" | logger
 systemctl enable nftables.service
 systemctl start nftables.service
 
-# configure telemetry
+echo "configuring telemetry services" | logger
 echo "telemetry: swingset enabled at on tcp/9464 and tendermint enabled on tcp/26660"
 sed -i "s/prometheus = false/prometheus = true/" $DATA_DIR/config/config.toml
 
 # start via systemd
-echo "Setting ag-chain-cosmos to run from systemd"
+echo "Setting ag-chain-cosmos to run from systemd" | logger
 echo "systemctl status ag-chain-cosmos"
  systemctl enable ag-chain-cosmos
  systemctl daemon-reload
@@ -504,6 +505,6 @@ echo "systemctl status ag-chain-cosmos"
 # apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
 # apt -y autoremove
 
-echo "install completed, chain syncing"
+echo "install completed, chain syncing" | logger
 echo "for sync status: ag-cosmos-helper status 2>&1 | jq .SyncInfo"
 echo "or check stackdriver logs for this instance"
