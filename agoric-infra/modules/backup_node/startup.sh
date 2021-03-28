@@ -1,5 +1,17 @@
 #!/bin/bash
 
+echo "home dir is: "
+echo $HOME | logger
+
+echo "environment is:"
+env | logger
+
+# helpful packages
+echo "Updating packages" | logger
+apt update && apt -y upgrade
+echo "Installing htop and screen" | logger
+apt install -y htop screen
+
 # ---- Configure logrotate ----
 echo "Configuring logrotate" | logger
 cat <<'EOF' > '/etc/logrotate.d/rsyslog'
@@ -363,7 +375,7 @@ apt update
 
 # Install Node.js, Yarn, and build tools
 # Install jq for formatting of JSON data
-apt install nodejs=12.* yarn build-essential jq git nftables htop screen -y
+apt install nodejs=12.* yarn build-essential jq git nftables -y
 
 # First remove any existing old Go installation
  rm -rf /usr/local/go
@@ -372,13 +384,14 @@ apt install nodejs=12.* yarn build-essential jq git nftables htop screen -y
 curl https://dl.google.com/go/go1.15.7.linux-amd64.tar.gz |  tar -C/usr/local -zxvf -
 
 # Update environment variables to include go
-cat <<'EOF' >>$HOME/.profile
+cat <<'EOF' >> $HOME/.profile
 export GOROOT=/usr/local/go
 export GOPATH=$HOME/go
 export GO111MODULE=on
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
-. $HOME/.profile
+#. $HOME/.profile
+source $HOME/.profile
 
 cd $DATA_DIR
 #git clone https://github.com/Agoric/agoric-sdk -b $GIT_BRANCH

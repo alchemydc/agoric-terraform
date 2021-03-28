@@ -62,9 +62,9 @@ resource "google_compute_firewall" "agoric_telemetry_firewall" {
 
   #source_ranges = 142.93.181.215    # prometheus.testnet.agoric.net   # todo: make var
   # allow connections to the prometheus ports from the VPC as well as from prometheus.testnet.agoric.net
-  #source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range], "142.93.181.215/24")
-  #source_ranges = ["142.93.181.215/24"]
-  source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range], ["142.93.181.215/24"])
+  #source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range], "142.93.181.215/32")
+  #source_ranges = ["142.93.181.215/32"]
+  source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range], ["142.93.181.215/32"])
 
 
   allow {

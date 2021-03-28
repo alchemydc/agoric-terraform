@@ -26,8 +26,8 @@ variable instance_types {
   type        = map(string)
 
   default = {
-    validator           = "n1-standard-1"
-    backup_node         = "n1-standard-1"
+    validator           = "n1-standard-2"
+    backup_node         = "n1-standard-2"
   }
 }
 

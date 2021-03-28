@@ -37,7 +37,7 @@ resource "google_compute_instance" "backup_node" {
   boot_disk {
     initialize_params {
       image = "debian-cloud/debian-10"
-      size = 8
+      size = 10
     }
   }
 
