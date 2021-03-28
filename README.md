@@ -15,7 +15,7 @@ Inside the [agoric-infra](./agoric-infra) folder you will find a module (and sub
 The validator and backup-node services expose metrics for collection via Prometheus or similar.  See [docs/metrics.md](./docs/metrics.md) for more info.
 
 ## Stackdriver Logging, Monitoring and Alerting
-Support for GCP's Stackdriver platform has been added, which makes it easy to get visibility into how your Agoric validator stack is performing.
+Support for GCP's Stackdriver platform has been enabled, which makes it easy to get visibility into how your Agoric validator stack is performing.
 
 ## Quick start
 1. Clone this repo
@@ -23,24 +23,24 @@ Support for GCP's Stackdriver platform has been added, which makes it easy to ge
   git clone https://github.com/alchemydc/agoric-terraform.git
   ```
 2. Install dependencies
-   OSX (assumes [Brew](https://brew.sh/) is installed):
-   ```console
-   brew update && brew install terraform google-cloud-sdk
-   ```
+   * OSX
+     (assumes [Brew](https://brew.sh/) is installed):
+     ```console
+     brew update && brew install terraform google-cloud-sdk
+     ```
 
-   Linux
-   Install [Google Cloud SDK](https://cloud.google.com/sdk/docs/install#linux)
-
-   Install Terraform
-   ```console
-   sudo apt update && sudo apt install terraform
-   ```
+   * Linux
+     Install [Google Cloud SDK](https://cloud.google.com/sdk/docs/install#linux)
+     Install Terraform
+     ```console
+     sudo apt update && sudo apt install terraform
+     ```
 
 3. Authenticate the gcloud SDK
-   ```console
-  gcloud auth login
-  ```
-  This will spawn a browser window and use Oauth to authenticate the gcloud sdk to your GCP account.
+    ```console
+    gcloud auth login
+    ```
+    This will spawn a browser window and use Oauth to authenticate the gcloud sdk to your GCP account.
 
 4. Run bootstrap.sh
    ```console
