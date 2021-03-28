@@ -404,6 +404,182 @@ EOF
 #systemctl enable geth.service
 
 
+# FIXME:parameterize these as variables and expose properly via terraform
+GIT_BRANCH="@agoric/sdk@2.15.1"
+MONIKER="ElectricCoinCo"    # fixme
+BASE_URI="https://testnet.agoric.net"
+AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
+#AGORIC_PROMETHEUS_IP="142.93.181.215"
+AGORIC_PROMETHEUS_IP=`$AGORIC_PROMETHEUS_HOSTNAME | cut -d ' ' -f 4`
+# following will expose Agoric VM (SwingSet) metrics globally on tcp/94643
+# see https://github.com/Agoric/agoric-sdk/blob/master/packages/cosmic-swingset/README-telemetry.md for more info
+export OTEL_EXPORTER_PROMETHEUS_PORT=9464
+
+# refresh packages and update all
+sudo apt update && sudo apt upgrade -y
+
+# Download the nodesource PPA for Node.js
+curl https://deb.nodesource.com/setup_12.x | sudo bash
+
+# Download the Yarn repository configuration
+# See instructions on https://legacy.yarnpkg.com/en/docs/install/
+curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+
+# Update Ubuntu
+sudo apt update
+
+# Install Node.js, Yarn, and build tools
+# Install jq for formatting of JSON data
+sudo apt install nodejs=12.* yarn build-essential jq git nftables -y
+
+# remove unneeded packages
+sudo apt -y autoremove
+
+# First remove any existing old Go installation
+sudo rm -rf /usr/local/go
+
+# Install correct Go version
+curl https://dl.google.com/go/go1.15.7.linux-amd64.tar.gz | sudo tar -C/usr/local -zxvf -
+
+# Update environment variables to include go
+cat <<'EOF' >>$HOME/.profile
+export GOROOT=/usr/local/go
+export GOPATH=$HOME/go
+export GO111MODULE=on
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+EOF
+source $HOME/.profile
+
+git clone https://github.com/Agoric/agoric-sdk -b ${GIT_BRANCH}
+cd agoric-sdk
+
+# Install and build Agoric Javascript packages
+yarn install
+yarn build
+
+# Install and build Agoric Cosmos SDK support
+cd packages/cosmic-swingset && make
+
+# test to see agoric SDK is correctly installed
+echo "testing to see agoric SDK is correctly installed"
+ag-chain-cosmos version --long
+
+mkdir ~/validator
+cd ~/validator
+
+# First, get the network config for the current network.
+curl ${BASE_URI}/network-config > chain.json
+# Set chain name to the correct value
+chainName=`jq -r .chainName < chain.json`
+# Confirm value: should be something like agoricdev-N.
+echo $chainName
+
+# Replace <your_moniker> with the public name of your node.
+# NOTE: The `--home` flag (or `AG_CHAIN_COSMOS_HOME` environment variable) determines where the chain state is stored.
+# By default, this is `$HOME/.ag-chain-cosmos`.
+ag-chain-cosmos init --chain-id $chainName ${MONIKER}
+
+# Download the genesis file
+curl ${BASE_URI}/genesis.json > $HOME/.ag-chain-cosmos/config/genesis.json 
+# Reset the state of your validator.
+ag-chain-cosmos unsafe-reset-all
+
+# Set peers variable to the correct value
+peers=$(jq '.peers | join(",")' < chain.json)
+# Set seeds variable to the correct value.
+seeds=$(jq '.seeds | join(",")' < chain.json)
+# Confirm values, each should be something like "077c58e4b207d02bbbb1b68d6e7e1df08ce18a8a@178.62.245.23:26656,..."
+echo $peers
+echo $seeds
+# Fix `Error: failed to parse log level`
+sed -i.bak 's/^log_level/# log_level/' $HOME/.ag-chain-cosmos/config/config.toml
+# Replace the seeds and persistent_peers values
+sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.ag-chain-cosmos/config/config.toml
+
+echo "Setting up ag-chain-cosmos service in systemd"
+sudo tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
+[Unit]
+Description=Agoric Cosmos daemon
+After=network-online.target
+
+[Service]
+User=$USER
+Environment="OTEL_EXPORTER_PROMETHEUS_PORT=9464"
+ExecStart=$HOME/go/bin/ag-chain-cosmos start --log_level=warn
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "Configuring firewall rules"
+sudo tee <<EOF >/dev/null /etc/nftables.conf
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet filter {
+        chain input {
+                type filter hook input priority 0;
+
+                # accept any localhost traffic
+                iif lo accept
+
+                # accept traffic originated from us
+                ct state established,related accept
+
+                # activate the following line to accept common local services
+                tcp dport { 22, 26656 } ct state new accept
+
+                # permit prometheus access to telemetry ports but ONLY from agoric
+                ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 26660} ct state new accept
+
+                # accept neighbour discovery otherwise IPv6 connectivity breaks.
+                #ip6 nexthdr icmpv6 icmpv6 type { nd-neighbor-solicit,  nd-router-advert, nd-neighbor-advert } accept
+
+                # count and drop any other traffic
+                counter drop
+        }
+}
+EOF
+
+echo "Enabling firewall"
+sudo systemctl enable nftables.service
+sudo systemctl start nftables.service
+
+# Check the contents of the file, especially User, Environment and ExecStart lines
+cat /etc/systemd/system/ag-chain-cosmos.service
+
+# configure telemetry
+echo "telemetry: swingset enabled at on tcp/9464 and tendermint enabled on tcp/26660"
+sed -i "s/prometheus = false/prometheus = true/" $HOME/.ag-chain-cosmos/config/config.toml
+
+# start from console
+echo "to start from console: "
+echo "ag-chain-cosmos start --log_level=warn"
+
+# start via systemd
+echo "Setting ag-chain-cosmos to run from systemd"
+echo "systemctl status ag-chain-cosmos"
+sudo systemctl enable ag-chain-cosmos
+sudo systemctl daemon-reload
+sudo systemctl start ag-chain-cosmos
+
+echo "install completed, chain syncing"
+echo "for sync status: ag-cosmos-helper status 2>&1 | jq .SyncInfo"
+
+#echo "Now you need to interactively create keys"
+#echo "ag-cosmos-helper keys add <your-key-name>"
+#echo "To see a list of wallets on your node run: ag-cosmos-helper keys list"
+#echo "Tap the faucet: !faucet delegate agoric1... [nb: use agoric address, not pubkey]"
+#echo "check balance as follows: "
+#echo "ag-cosmos-helper query bank balances `ag-cosmos-helper keys show -a <your-key-name>`"
+#echo "follow instructions here to finish registering validator: https://github.com/Agoric/agoric-sdk/wiki/Validator-Guide"
+
+#echo "also don't forget to `source $HOME/.profile`"
 
 
 
