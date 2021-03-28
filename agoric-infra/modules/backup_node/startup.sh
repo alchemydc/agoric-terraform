@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # ---- Configure logrotate ----
 echo "Configuring logrotate" | logger
 cat <<'EOF' > '/etc/logrotate.d/rsyslog'
@@ -222,7 +221,6 @@ chmod u+x /root/restore_rsync.sh
 echo "Configuring aliases" | logger
 echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
 echo "alias ll='ls -laF'" >> /root/.bashrc
-echo "alias gattach='docker exec -it geth geth attach'" >> /etc/skel/.bashrc
 
 # ---- Install Stackdriver Agent
 echo "Installing Stackdriver agent" | logger
@@ -236,7 +234,6 @@ systemctl restart stackdriver-agent
 echo "Installing google fluent log collector agent" | logger
 curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
 bash add-logging-agent-repo.sh
-apt update -y
 apt install -y google-fluentd
 apt install -y google-fluentd-catch-all-config-structured
 systemctl restart google-fluentd
@@ -279,8 +276,7 @@ echo "UUID=$DISK_UUID     $DATA_DIR   auto    discard,defaults    0    0" >> /et
 mount $DATA_DIR
 
 # Remove existing chain data
-[[ ${reset_chain_data} == "true" ]] && rm -rf $DATA_DIR/.ag-chain-cosmos/data
-#mkdir -p $DATA_DIR/account
+[[ ${reset_chain_data} == "true" ]] && rm -rf $DATA_DIR/data
 
 # ---- Install Docker ----
 
@@ -325,65 +321,7 @@ EOF
 #echo "Restarting docker" | logger
 #systemctl restart docker
 
-# ---- Set Up and Run Geth ----
-#
-#echo "Configuring Geth" | logger
-#
-#GETH_NODE_DOCKER_IMAGE=${geth_node_docker_image_repository}:${geth_node_docker_image_tag}
-#
-#echo "Pulling geth..."
-#docker pull $GETH_NODE_DOCKER_IMAGE
-
-#IN_MEMORY_DISCOVERY_TABLE_FLAG=""
-#[[ ${in_memory_discovery_table} == "true" ]] && IN_MEMORY_DISCOVERY_TABLE_FLAG="--use-in-memory-discovery-table"
-
-# Load configuration to files
-#mkdir -p $DATA_DIR/account
-#
-#echo -n '${rid}' > $DATA_DIR/replica_id
-#echo -n '${ip_address}' > $DATA_DIR/ipAddress
-#
-
-#cat <<EOF >/etc/systemd/system/geth.service
-#[Unit]
-#Description=Docker Container %N
-#Requires=docker.service
-#After=docker.service
-#
-#[Service]
-#Restart=always
-#ExecStart=/usr/bin/docker run \\
-#  --rm \\
-#  --name geth \\
-#  --net=host \\
-#  -v $DATA_DIR:$DATA_DIR \\
-#  --entrypoint /bin/sh \\
-#  $GETH_NODE_DOCKER_IMAGE -c "\\
-#    geth \\
-#      --nousb \\
-#      --maxpeers ${max_peers} \\
-#      --rpc \\
-#      --rpcapi=eth,net,web3 \\
-#      --networkid=${network_id} \\
-#      --syncmode=full \\
-#      --consoleformat=json \\
-#      --consoleoutput=stdout \\
-#      --verbosity=${geth_verbosity} \\
-#      --nat=extip:${ip_address} \\
-#      --metrics \\
-#      --pprof \\
-#      $IN_MEMORY_DISCOVERY_TABLE_FLAG \\
-#      --light.serve 0 \\
-#  "
-#ExecStop=/usr/bin/docker stop -t 60 %N
-
-#[Install]
-#WantedBy=default.target
-#EOF
-
-#echo "Adding DC to docker group" | logger
-#usermod -aG docker dc
-
+# warp restore scripts disabled until they're tested w/ the agoric chaindata format
 # --- run restore script
 # this script tries to restore chaindata from a GCS hosted tarball.
 # if the chaindata doesn't exist on GCS, geth will start normal (slow) p2p sync
@@ -399,11 +337,6 @@ EOF
 #echo "Attempting to restore chaindata from backup via rsync"
 #bash /root/restore_rsync.sh
 
-#echo "Starting Geth"
-#systemctl daemon-reload
-#systemctl enable geth.service
-
-
 # FIXME:parameterize these as variables and expose properly via terraform
 GIT_BRANCH="@agoric/sdk@2.15.1"
 MONIKER="ElectricCoinCo"    # fixme
@@ -413,34 +346,31 @@ AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
 AGORIC_PROMETHEUS_IP=`$AGORIC_PROMETHEUS_HOSTNAME | cut -d ' ' -f 4`
 # following will expose Agoric VM (SwingSet) metrics globally on tcp/94643
 # see https://github.com/Agoric/agoric-sdk/blob/master/packages/cosmic-swingset/README-telemetry.md for more info
-export OTEL_EXPORTER_PROMETHEUS_PORT=9464
+OTEL_EXPORTER_PROMETHEUS_PORT=9464
 
 # refresh packages and update all
-sudo apt update && sudo apt upgrade -y
+apt update && apt upgrade -y
 
 # Download the nodesource PPA for Node.js
-curl https://deb.nodesource.com/setup_12.x | sudo bash
+curl https://deb.nodesource.com/setup_12.x |  bash
 
 # Download the Yarn repository configuration
 # See instructions on https://legacy.yarnpkg.com/en/docs/install/
-curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
-echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+echo "deb https://dl.yarnpkg.com/debian/ stable main" |  tee /etc/apt/sources.list.d/yarn.list
 
-# Update Ubuntu
-sudo apt update
+# Update Ubuntu to pickup the yarn repo
+apt update
 
 # Install Node.js, Yarn, and build tools
 # Install jq for formatting of JSON data
-sudo apt install nodejs=12.* yarn build-essential jq git nftables -y
-
-# remove unneeded packages
-sudo apt -y autoremove
+apt install nodejs=12.* yarn build-essential jq git nftables htop screen -y
 
 # First remove any existing old Go installation
-sudo rm -rf /usr/local/go
+ rm -rf /usr/local/go
 
 # Install correct Go version
-curl https://dl.google.com/go/go1.15.7.linux-amd64.tar.gz | sudo tar -C/usr/local -zxvf -
+curl https://dl.google.com/go/go1.15.7.linux-amd64.tar.gz |  tar -C/usr/local -zxvf -
 
 # Update environment variables to include go
 cat <<'EOF' >>$HOME/.profile
@@ -449,8 +379,9 @@ export GOPATH=$HOME/go
 export GO111MODULE=on
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
-source $HOME/.profile
+. $HOME/.profile
 
+cd $DATA_DIR
 git clone https://github.com/Agoric/agoric-sdk -b ${GIT_BRANCH}
 cd agoric-sdk
 
@@ -465,9 +396,7 @@ cd packages/cosmic-swingset && make
 echo "testing to see agoric SDK is correctly installed"
 ag-chain-cosmos version --long
 
-mkdir ~/validator
-cd ~/validator
-
+cd $DATA_DIR
 # First, get the network config for the current network.
 curl ${BASE_URI}/network-config > chain.json
 # Set chain name to the correct value
@@ -481,7 +410,8 @@ echo $chainName
 ag-chain-cosmos init --chain-id $chainName ${MONIKER}
 
 # Download the genesis file
-curl ${BASE_URI}/genesis.json > $HOME/.ag-chain-cosmos/config/genesis.json 
+#curl ${BASE_URI}/genesis.json > $HOME/.ag-chain-cosmos/config/genesis.json 
+curl ${BASE_URI}/genesis.json > $DATA_DIR/config/genesis.json 
 # Reset the state of your validator.
 ag-chain-cosmos unsafe-reset-all
 
@@ -498,7 +428,7 @@ sed -i.bak 's/^log_level/# log_level/' $HOME/.ag-chain-cosmos/config/config.toml
 sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.ag-chain-cosmos/config/config.toml
 
 echo "Setting up ag-chain-cosmos service in systemd"
-sudo tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
+tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
 [Unit]
 Description=Agoric Cosmos daemon
 After=network-online.target
@@ -516,7 +446,7 @@ WantedBy=multi-user.target
 EOF
 
 echo "Configuring firewall rules"
-sudo tee <<EOF >/dev/null /etc/nftables.conf
+ tee <<EOF >/dev/null /etc/nftables.conf
 #!/usr/sbin/nft -f
 
 flush ruleset
@@ -547,44 +477,25 @@ table inet filter {
 EOF
 
 echo "Enabling firewall"
-sudo systemctl enable nftables.service
-sudo systemctl start nftables.service
-
-# Check the contents of the file, especially User, Environment and ExecStart lines
-cat /etc/systemd/system/ag-chain-cosmos.service
+systemctl enable nftables.service
+systemctl start nftables.service
 
 # configure telemetry
 echo "telemetry: swingset enabled at on tcp/9464 and tendermint enabled on tcp/26660"
-sed -i "s/prometheus = false/prometheus = true/" $HOME/.ag-chain-cosmos/config/config.toml
-
-# start from console
-echo "to start from console: "
-echo "ag-chain-cosmos start --log_level=warn"
+sed -i "s/prometheus = false/prometheus = true/" $DATA_DIR/config/config.toml
 
 # start via systemd
 echo "Setting ag-chain-cosmos to run from systemd"
 echo "systemctl status ag-chain-cosmos"
-sudo systemctl enable ag-chain-cosmos
-sudo systemctl daemon-reload
-sudo systemctl start ag-chain-cosmos
+ systemctl enable ag-chain-cosmos
+ systemctl daemon-reload
+ systemctl start ag-chain-cosmos
+
+#--- remove compilers
+echo "Removing compilers and unnecessary packages" | logger
+ apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
+ apt -y autoremove
 
 echo "install completed, chain syncing"
 echo "for sync status: ag-cosmos-helper status 2>&1 | jq .SyncInfo"
-
-#echo "Now you need to interactively create keys"
-#echo "ag-cosmos-helper keys add <your-key-name>"
-#echo "To see a list of wallets on your node run: ag-cosmos-helper keys list"
-#echo "Tap the faucet: !faucet delegate agoric1... [nb: use agoric address, not pubkey]"
-#echo "check balance as follows: "
-#echo "ag-cosmos-helper query bank balances `ag-cosmos-helper keys show -a <your-key-name>`"
-#echo "follow instructions here to finish registering validator: https://github.com/Agoric/agoric-sdk/wiki/Validator-Guide"
-
-#echo "also don't forget to `source $HOME/.profile`"
-
-
-
-
-#--- remove compilers
-echo "Removing compilers" | logger
-sudo apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
-sudo apt -y autoremove
+echo "or check stackdriver logs for this instance"
