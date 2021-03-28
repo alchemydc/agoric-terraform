@@ -442,9 +442,9 @@ Description=Agoric Cosmos daemon
 After=network-online.target
 
 [Service]
-User=$USER
+User=root
 Environment="OTEL_EXPORTER_PROMETHEUS_PORT=9464"
-ExecStart=$HOME/go/bin/ag-chain-cosmos start --log_level=warn
+ExecStart=/root/go/bin/ag-chain-cosmos start --log_level=warn
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096
