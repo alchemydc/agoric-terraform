@@ -3,13 +3,13 @@ Terraform module for creating and managing Agoric infrastructure
 
 ## Overview
 
-[Terraform](https://www.terraform.io) is a tool by Hashicorp that allows developers to treat _"infrastructure as code"_, easying the management and repeatibility of the infrastructure.  
+[Terraform](https://www.terraform.io) is a tool by Hashicorp that allows developers to treat _"infrastructure as code"_, which makes the management and repeatibility of the infrastructure much easier.  
 
-Infrastructure and all kind of cloud resources are defined in modules, and Terraform creates/changes/destroys resources when changes are applied.
+Infrastructure and all kinds of cloud resources (such as firewalls) are defined in modules, and Terraform creates/changes/destroys resources when changes are applied.
 
-Inside the [agoric-infra](./agoric-infra) folder you will find a module (and submodules) to create the setup for running an Agoric Validator on Google Cloud Platform. The following resources can be created via these modules:
+Inside the [agoric-infra](./agoric-infra) folder you will find a module (and submodules) to create the infastructure required for running an Agoric Validator on Google Cloud Platform. The following resources can be created via these modules:
 
-- `validator` module for deploying a Validator which peers with Agoric nodes over the p2p network and participates in consensus
+- `validator` module for deploying a Validator which peers with Agoric nodes over the p2p network and participates in consensus.
 - `backup-node` for deploying a full node which is used to create regular backups of chain data to Google Cloud Storage (GCS) without disturbing the Validator.  These backups can be used to bootstrap additional validators or full nodes without waiting for p2p sync, and can be very useful for disaster recovery.
 
 The validator and backup-node services expose metrics for collection via Prometheus or similar.  See [docs/metrics.md](./docs/metrics.md) for more info.
