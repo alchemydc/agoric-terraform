@@ -70,3 +70,5 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
     `terraform apply`
 
 
+## Troubleshooting
+If you get "Error retrieving IAM policy for storage bucket" errors from Terraform, these are likely due to a race condition. Simply re-run terraform apply.

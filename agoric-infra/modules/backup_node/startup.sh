@@ -1,10 +1,6 @@
 #!/bin/bash
 
-echo "home dir is: "
-echo $HOME | logger
-
-echo "environment is:"
-env | logger
+export HOME="/root"
 
 # helpful packages
 echo "Updating packages" | logger
@@ -390,8 +386,7 @@ export GOPATH=$HOME/go
 export GO111MODULE=on
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
-#. $HOME/.profile
-source $HOME/.profile
+. $HOME/.profile
 
 cd $DATA_DIR
 #git clone https://github.com/Agoric/agoric-sdk -b $GIT_BRANCH
@@ -505,9 +500,9 @@ echo "systemctl status ag-chain-cosmos"
  systemctl start ag-chain-cosmos
 
 #--- remove compilers
-echo "Removing compilers and unnecessary packages" | logger
- apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
- apt -y autoremove
+#echo "Removing compilers and unnecessary packages" | logger
+# apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
+# apt -y autoremove
 
 echo "install completed, chain syncing"
 echo "for sync status: ag-cosmos-helper status 2>&1 | jq .SyncInfo"
