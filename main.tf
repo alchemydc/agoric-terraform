@@ -69,8 +69,6 @@ module "agoric_cluster" {
   stackdriver_logging_exclusions = var.stackdriver_logging_exclusions
   stackdriver_logging_metrics    = var.stackdriver_logging_metrics
   
-
-  tx_node_count       = var.replicas["txnode"]
   backup_node_count   = var.replicas["backup_node"]
   validator_count     = var.replicas["validator"]
 
