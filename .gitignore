@@ -27,3 +27,11 @@ override.tf.json
 
 # Include tfplan files to ignore the plan output of command: terraform plan -out=tfplan
 # example: *tfplan*
+
+# gcloud configuration
+gcloud.env
+
+# terraform artifacts
+backend.tf
+iam.txt
+.terraform.lock.hcl
