@@ -52,11 +52,6 @@ resource "google_compute_firewall" "agoric_p2p_firewall" {
     protocol = "tcp"
     ports    = ["26656"]
   }
-
-  allow {
-    protocol = "tcp"
-    ports    = ["9464"]
-  }
 }
 
 resource "google_compute_firewall" "agoric_telemetry_firewall" {
