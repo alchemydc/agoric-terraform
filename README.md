@@ -30,12 +30,12 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
      ```
 
    * Linux
-     Install [Google Cloud SDK](https://cloud.google.com/sdk/docs/install#linux)
-     
-     Install Terraform
-        ```console
-        sudo apt update && sudo apt install terraform
-        ```
+     * Install [Google Cloud SDK](https://cloud.google.com/sdk/docs/install#linux)
+
+     * Install Terraform
+            ```console
+            sudo apt update && sudo apt install terraform
+            ```
 
 3. Authenticate the gcloud SDK
     ```console
