@@ -36,3 +36,6 @@ backend.tf
 iam.txt
 .terraform.lock.hcl
 terraform.tfvars
+
+#OSX artifacts
+.DS_Store
