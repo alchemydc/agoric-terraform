@@ -1,5 +1,5 @@
 # agoric-terraform
-Terraform module for creating and managing Agoric infrastructure
+Terraform module for creating and managing Agoric infrastructure.  Presently GCP is supported.  AWS support is not yet implemented.
 
 ## Overview
 
@@ -71,4 +71,11 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
 
 
 ## Troubleshooting
-If you get "Error retrieving IAM policy for storage bucket" errors from Terraform, these are likely due to a race condition. Simply re-run terraform apply.
+* If you get "Error retrieving IAM policy for storage bucket" errors from Terraform, these are likely due to a race condition. Simply re-run terraform apply.
+
+* `Error: Incompatible provider version
+
+  Provider registry.terraform.io/hashicorp/google v3.61.0 does not have a
+  package available for your current platform, darwin_arm64.`
+
+  Apple Mac arm64 (M1) users presently will not be able to use Terraform to deploy infrastructure on GCP until the arm64 release of this provider is cut, which is expected any day now (as of 29 March 2021)
