@@ -86,6 +86,7 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
 * The google-fluent package appears to get clobbered by something in the Agoric toolchain, and needs to be reinstalled post-provision in order for Stackdriver logging to work.
 * Firewall is created in GCP VPC.  Host baesd rules (nftables) are also created (to /etc/nftables.conf) but aren't activated by default.
 * Key management (backup/restore/etc) is not yet implemented.
+* Secrets management is not yet implmemented.  For now sensitive data is stored locally in terraform.tfvars, so it's not checked into git.  However, any secrets will be in the clear in the instance metadata, which is suboptimal.  Longer term we should look at Vault or similar for secrets management.
 
 ## Credit
 To [Javier Cortejoso](https://github.com/jcortejoso) at Clabs who created the [framework](https://github.com/alchemydc/celo-monorepo/tree/master/packages/terraform-modules-public) upon which this code is based.

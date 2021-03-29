@@ -129,7 +129,7 @@ set -x
 
 echo "Starting chaindata backup" | logger
 systemctl stop ag-chain-cosmos.service
-sleep 5
+sleep 10
 # FIXME: not sure if anything else in .ag-chain-cosmos/data can be backed up to speed bootstrapping of new nodes
 mkdir -p /root/.ag-chain-cosmos/backup
 # backup only the data for now, not the config
@@ -152,7 +152,7 @@ set -x
 
 echo "Starting rsync chaindata backup" | logger
 systemctl stop ag-chain-cosmos.service
-sleep 5
+sleep 15
 # will backup config via rsync, since it's easy to selectively restore it or not
 gsutil -m rsync -d -r /root/.ag-chain-cosmos/config  gs://${gcloud_project}-chaindata-rsync/config
 gsutil -m rsync -d -r /root/.ag-chain-cosmos/data  gs://${gcloud_project}-chaindata-rsync/data
@@ -172,7 +172,8 @@ cat <<'EOF' > /root/backup.crontab
 # backup via rsync run every six hours at 00:17 past the hour
 17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
 EOF
-/usr/bin/crontab /root/backup.crontab
+# Disabling automatic backups for testing
+#/usr/bin/crontab /root/backup.crontab
 
 # ---- Create restore script
 echo "Creating chaindata restore script" | logger

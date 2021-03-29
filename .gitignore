@@ -39,3 +39,6 @@ terraform.tfvars
 
 #OSX artifacts
 .DS_Store
+
+#private utility scripts
+private/
