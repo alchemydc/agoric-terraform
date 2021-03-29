@@ -198,8 +198,9 @@ then
   echo "removing chaindata tarball" | logger
   rm -rf /root/.ag-chain-cosmos/restore/chaindata.tgz
   sleep 3
-  echo "starting ag-chain-cosmos.service" | logger
-  systemctl start ag-chain-cosmos.service
+  # echo re-enable this after ensuring we can cleanly restarted daemon with restored data
+  #echo "starting ag-chain-cosmos.service" | logger
+  #systemctl start ag-chain-cosmos.service
   else
     echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting warp restore" | logger
   fi
@@ -432,6 +433,13 @@ curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json
 # Reset the state of your validator.
 ag-chain-cosmos unsafe-reset-all
 
+#backup state file
+cp $DATA_DIR/data/priv_validator_state.json /root/
+#restore chain data from tarball
+/root/restore.sh
+# restore state file
+cp -vf /root/priv_validator_state.json $DATA_DIR/data/priv_validator_state.json
+
 # Set peers variable to the correct value
 peers=$(jq '.peers | join(",")' < chain.json)
 # Set seeds variable to the correct value.
@@ -440,9 +448,11 @@ seeds=$(jq '.seeds | join(",")' < chain.json)
 echo $peers
 echo $seeds
 # Fix `Error: failed to parse log level`
-sed -i.bak 's/^log_level/# log_level/' $HOME/.ag-chain-cosmos/config/config.toml
+#sed -i.bak 's/^log_level/# log_level/' $HOME/.ag-chain-cosmos/config/config.toml
+sed -i.bak 's/^log_level/# log_level/' $DATA_DIR/config/config.toml
 # Replace the seeds and persistent_peers values
-sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.ag-chain-cosmos/config/config.toml
+#sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.ag-chain-cosmos/config/config.toml
+sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $DATA_DIR/config/config.toml
 
 echo "Setting up ag-chain-cosmos service in systemd" | logger
 tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
