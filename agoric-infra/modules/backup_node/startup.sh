@@ -131,7 +131,10 @@ echo "Starting chaindata backup" | logger
 systemctl stop ag-chain-cosmos.service
 sleep 5
 # FIXME: not sure if anything else in .ag-chain-cosmos/data can be backed up to speed bootstrapping of new nodes
-tar -C /root/.ag-chain-cosmos/data -zcvf /root/.ag-chain-cosmos/backup/chaindata.tgz ag-cosmos-chain-state
+mkdir -p /root/.ag-chain-cosmos/backup
+# backup only the data for now, not the config
+#tar -C /root/.ag-chain-cosmos -zcvf /root/.ag-chain-cosmos/backup/chaindata.tgz data config
+tar -C /root/.ag-chain-cosmos -zcvf /root/.ag-chain-cosmos/backup/chaindata.tgz data
 gsutil cp /root/.ag-chain-cosmos/backup/chaindata.tgz gs://${gcloud_project}-chaindata
 rm -f /root/.ag-chain-cosmos/backup/chaindata.tgz
 echo "Chaindata backup completed" | logger
@@ -150,7 +153,9 @@ set -x
 echo "Starting rsync chaindata backup" | logger
 systemctl stop ag-chain-cosmos.service
 sleep 5
-gsutil -m rsync -d -r /root/.ag-chain-cosmos/data/ag-cosmos-chain-state chaindata gs://${gcloud_project}-chaindata-rsync
+# will backup config via rsync, since it's easy to selectively restore it or not
+gsutil -m rsync -d -r /root/.ag-chain-cosmos/config  gs://${gcloud_project}-chaindata-rsync/config
+gsutil -m rsync -d -r /root/.ag-chain-cosmos/data  gs://${gcloud_project}-chaindata-rsync/data
 echo "rsync chaindata backup completed" | logger
 sleep 3
 systemctl start ag-chain-cosmos.service
@@ -181,6 +186,7 @@ if [ $? -eq 0 ]
 then
   #chaindata exists in bucket
   mkdir -p /root/.ag-chain-cosmos/data
+  mkdir -p /root/.ag-chain-cosmos/config
   mkdir -p /root/.ag-chain-cosmos/restore
   echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
   gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz /root/.ag-chain-cosmos/restore/chaindata.tgz
@@ -188,7 +194,7 @@ then
   systemctl stop ag-chain-cosmos.service
   sleep 3
   echo "untarring chaindata" | logger
-  tar zxvf /root/.ag-chain-cosmos/restore/chaindata.tgz --directory /root/.ag-chain-cosmos/data/ag-cosmos-chain-state
+  tar zxvf /root/.ag-chain-cosmos/restore/chaindata.tgz --directory /root/.ag-chain-cosmos
   echo "removing chaindata tarball" | logger
   rm -rf /root/.ag-chain-cosmos/restore/chaindata.tgz
   sleep 3
@@ -207,15 +213,17 @@ cat <<'EOF' > /root/restore_rsync.sh
 set -x
 
 # test to see if chaindata exists in the rsync chaindata bucket
-gsutil -q stat gs://${gcloud_project}-chaindata-rsync/CURRENT
+gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data
 if [ $? -eq 0 ]
 then
   #chaindata exists in bucket
   echo "stopping ag-chain-cosmos.service" | logger
   systemctl stop ag-chain-cosmos.service
-  echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync" | logger
-  mkdir -p /root/.ag-chain-cosmos/data/ag-cosmos-chain-state
-  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.ag-chain-cosmos/data/ag-cosmos-chain-state
+  #echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
+  #mkdir -p /root/.ag-chain-cosmos/config
+  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.ag-chain-cosmos/config
+  mkdir -p /root/.ag-chain-cosmos/data
+  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data /root/.ag-chain-cosmos/data
   echo "restarting ag-chain-cosmos.service" | logger
   sleep 3
   systemctl start ag-chain-cosmos.service
@@ -348,8 +356,8 @@ EOF
 # FIXME:parameterize these as variables and expose properly via terraform
 # presently used for local firewall rules, which really should be controlled by variables
 AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
-#AGORIC_PROMETHEUS_IP="142.93.181.215"
-AGORIC_PROMETHEUS_IP=`$AGORIC_PROMETHEUS_HOSTNAME | cut -d ' ' -f 4`
+AGORIC_PROMETHEUS_IP="142.93.181.215"
+#AGORIC_PROMETHEUS_IP=`$AGORIC_PROMETHEUS_HOSTNAME | cut -d ' ' -f 4`
 # following will expose Agoric VM (SwingSet) metrics globally on tcp/94643
 # see https://github.com/Agoric/agoric-sdk/blob/master/packages/cosmic-swingset/README-telemetry.md for more info
 OTEL_EXPORTER_PROMETHEUS_PORT=9464
