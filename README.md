@@ -84,7 +84,7 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
 * Presently only the backup node is created, not the validator.
 * The backup node is provisioned sufficiently to sync the Agoric chain, but the backup/restore of chaindata functionality isn't yet working.
 * The google-fluent package appears to get clobbered by something in the Agoric toolchain, and needs to be reinstalled post-provision in order for Stackdriver logging to work.
-* Firewall is created in GCP VPS.  Host baesd rules (nftables) are also created (to /etc/nftables.conf) but aren't activated by default.
+* Firewall is created in GCP VPC.  Host baesd rules (nftables) are also created (to /etc/nftables.conf) but aren't activated by default.
 * Key management (backup/restore/etc) is not yet implemented.
 
 ## Credit
