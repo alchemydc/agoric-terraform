@@ -213,7 +213,7 @@ cat <<'EOF' > /root/restore_rsync.sh
 set -x
 
 # test to see if chaindata exists in the rsync chaindata bucket
-gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data
+gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
 if [ $? -eq 0 ]
 then
   #chaindata exists in bucket
@@ -493,9 +493,10 @@ table inet filter {
 }
 EOF
 
-echo "Enabling firewall" | logger
-systemctl enable nftables.service
-systemctl start nftables.service
+# disabling lost based firewall for testing
+#echo "Enabling firewall" | logger
+#systemctl enable nftables.service
+#systemctl start nftables.service
 
 echo "configuring telemetry services" | logger
 echo "telemetry: swingset enabled at on tcp/9464 and tendermint enabled on tcp/26660"
