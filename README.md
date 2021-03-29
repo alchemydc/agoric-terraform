@@ -1,5 +1,5 @@
 # agoric-terraform
-Terraform module for creating and managing Agoric infrastructure.  Presently GCP is supported.  AWS support is not yet implemented.
+Terraform module for creating and managing Agoric infrastructure.  Presently GCP is supported.  AWS support is not yet implemented in this project.  Take a look at [this project](https://github.com/novy4/agoric-tools) for AWS support in the meantime.
 
 ## Overview
 
@@ -80,6 +80,12 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
 
   Apple Mac arm64 (M1) users presently will not be able to use Terraform to deploy infrastructure on GCP until the arm64 release of this provider is cut, which is expected any day now (as of 29 March 2021)
 
+## Known Issues
+* Presently only the backup node is created, not the validator.
+* The backup node is provisioned sufficiently to sync the Agoric chain, but the backup/restore of chaindata functionality isn't yet working.
+* The google-fluent package appears to get clobbered by something in the Agoric toolchain, and needs to be reinstalled post-provision in order for Stackdriver logging to work.
+* Firewall is created in GCP VPS.  Host baesd rules (nftables) are also created (to /etc/nftables.conf) but aren't activated by default.
+* Key management (backup/restore/etc) is not yet implemented.
 
 ## Credit
 To [Javier Cortejoso](https://github.com/jcortejoso) at Clabs who created the [framework](https://github.com/alchemydc/celo-monorepo/tree/master/packages/terraform-modules-public) upon which this code is based.
