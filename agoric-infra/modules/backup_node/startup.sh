@@ -253,7 +253,8 @@ systemctl restart stackdriver-agent
 # ---- Install Fluent Log Collector
 echo "Installing google fluent log collector agent" | logger
 curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
-bash add-logging-agent-repo.sh --also-install --verbose
+#bash add-logging-agent-repo.sh
+bash add-logging-agent-repo.sh --also-install --verbose   # verbose until we track down the stackdriver issue
 apt install -y google-fluentd
 # google-fluentd-catch-all-config-structured appears to conflict with the catchall installed by the add-logging-agent-repo.sh script
 #apt install -y google-fluentd-catch-all-config-structured
