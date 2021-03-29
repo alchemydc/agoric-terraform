@@ -79,3 +79,7 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
   package available for your current platform, darwin_arm64.`
 
   Apple Mac arm64 (M1) users presently will not be able to use Terraform to deploy infrastructure on GCP until the arm64 release of this provider is cut, which is expected any day now (as of 29 March 2021)
+
+
+## Credit
+To [Javier Cortejoso](https://github.com/jcortejoso) at Clabs who created the [framework](https://github.com/alchemydc/celo-monorepo/tree/master/packages/terraform-modules-public) upon which this code is based.
