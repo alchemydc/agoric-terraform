@@ -434,11 +434,11 @@ curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json
 ag-chain-cosmos unsafe-reset-all
 
 #backup state file
-cp $DATA_DIR/data/priv_validator_state.json /root/
+#cp $DATA_DIR/data/priv_validator_state.json /root/
 #restore chain data from tarball
-/root/restore.sh
+#/root/restore.sh
 # restore state file
-cp -vf /root/priv_validator_state.json $DATA_DIR/data/priv_validator_state.json
+#cp -vf /root/priv_validator_state.json $DATA_DIR/data/priv_validator_state.json
 
 # Set peers variable to the correct value
 peers=$(jq '.peers | join(",")' < chain.json)
