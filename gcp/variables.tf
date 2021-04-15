@@ -17,7 +17,7 @@ variable replicas {
 
   default = {
     validator           = 1 
-    backup_node         = 1 
+    backup_node         = 0 
   }
 }
 
@@ -54,7 +54,7 @@ variable network_uri {
 variable network_id {
   description = "The agoric network ID"
   type        = number
-  default     = 42220
+  default     = 31337
 }
 
 variable agoric_node_release {
@@ -63,7 +63,7 @@ variable agoric_node_release {
 
   default = {
     repository = "https://github.com/Agoric/agoric-sdk"
-    tag        = "@agoric/sdk@2.15.1"
+    tag        = "agorictest-8"
   }
 }
 

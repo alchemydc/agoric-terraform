@@ -129,7 +129,7 @@ set -x
 
 echo "Starting chaindata backup" | logger
 systemctl stop ag-chain-cosmos.service
-sleep 10
+sleep 5
 # FIXME: not sure if anything else in .ag-chain-cosmos/data can be backed up to speed bootstrapping of new nodes
 mkdir -p /root/.ag-chain-cosmos/backup
 # backup only the data for now, not the config
@@ -152,7 +152,7 @@ set -x
 
 echo "Starting rsync chaindata backup" | logger
 systemctl stop ag-chain-cosmos.service
-sleep 15
+sleep 5
 # will backup config via rsync, since it's easy to selectively restore it or not
 gsutil -m rsync -d -r /root/.ag-chain-cosmos/config  gs://${gcloud_project}-chaindata-rsync/config
 gsutil -m rsync -d -r /root/.ag-chain-cosmos/data  gs://${gcloud_project}-chaindata-rsync/data
@@ -172,8 +172,7 @@ cat <<'EOF' > /root/backup.crontab
 # backup via rsync run every six hours at 00:17 past the hour
 17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
 EOF
-# Disabling automatic backups for testing
-#/usr/bin/crontab /root/backup.crontab
+/usr/bin/crontab /root/backup.crontab
 
 # ---- Create restore script
 echo "Creating chaindata restore script" | logger
@@ -239,9 +238,6 @@ chmod u+x /root/restore_rsync.sh
 echo "Configuring aliases" | logger
 echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
 echo "alias ll='ls -laF'" >> /root/.bashrc
-echo "alias agstatus='ag-cosmos-helper status 2>&1 | jq .' >> /etc/skel/.bashrc"
-echo "alias agstatus='ag-cosmos-helper status 2>&1 | jq .' >> /root/.bashrc"
-
 
 # ---- Install Stackdriver Agent
 echo "Installing Stackdriver agent" | logger
@@ -254,11 +250,9 @@ systemctl restart stackdriver-agent
 # ---- Install Fluent Log Collector
 echo "Installing google fluent log collector agent" | logger
 curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
-#bash add-logging-agent-repo.sh
-bash add-logging-agent-repo.sh --also-install --verbose   # verbose until we track down the stackdriver issue
+bash add-logging-agent-repo.sh
 apt install -y google-fluentd
-# google-fluentd-catch-all-config-structured appears to conflict with the catchall installed by the add-logging-agent-repo.sh script
-#apt install -y google-fluentd-catch-all-config-structured
+apt install -y google-fluentd-catch-all-config-structured
 systemctl restart google-fluentd
 
 # ---- Setup swap
@@ -440,11 +434,11 @@ curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json
 ag-chain-cosmos unsafe-reset-all
 
 #backup state file
-#cp $DATA_DIR/data/priv_validator_state.json /root/
+cp $DATA_DIR/data/priv_validator_state.json /root/
 #restore chain data from tarball
-#/root/restore.sh
+/root/restore.sh
 # restore state file
-#cp -vf /root/priv_validator_state.json $DATA_DIR/data/priv_validator_state.json
+cp -vf /root/priv_validator_state.json $DATA_DIR/data/priv_validator_state.json
 
 # Set peers variable to the correct value
 peers=$(jq '.peers | join(",")' < chain.json)

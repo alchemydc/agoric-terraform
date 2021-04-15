@@ -92,22 +92,23 @@ module "backup_node" {
   service_account_scopes                = var.service_account_scopes
 }
 
-#module "validator" {
-#  source = "./modules/validator"
-#  # variables
-#  block_time                            = var.block_time
-#  agoric_env                            = var.agoric_env
-#  gcloud_project                        = var.gcloud_project
-#  instance_type                         = var.instance_types["validator"]
-#  agoric_node_release_repository        = var.agoric_node_release_repository
-#  agoric_node_release_tag               = var.agoric_node_release_tag
-#  network_id                            = var.network_id
-#  network_name                          = var.network_name
-#  validator_count                       = var.validator_count
-#  reset_chain_data                      = var.reset_chain_data
-#  validator_name                     = var.validator_name
-#  validator_signer_account_addresses = var.validator_signer_account_addresses
-#  validator_signer_account_passwords = var.validator_signer_account_passwords
-#  validator_signer_private_keys      = var.validator_signer_private_keys
-#  service_account_scopes             = var.service_account_scopes
-#}
+module "validator" {
+  source = "./modules/validator"
+  # variables
+  block_time                            = var.block_time
+  agoric_env                            = var.agoric_env
+  gcloud_project                        = var.gcloud_project
+  instance_type                         = var.instance_types["validator"]
+  agoric_node_release_repository        = var.agoric_node_release_repository
+  agoric_node_release_tag               = var.agoric_node_release_tag
+  network_id                            = var.network_id
+  network_name                          = var.network_name
+  validator_count                       = var.validator_count
+  reset_chain_data                      = var.reset_chain_data
+  validator_name                        = var.validator_name
+  network_uri                           = var.network_uri
+  #validator_signer_account_addresses    = var.validator_signer_account_addresses
+  #validator_signer_account_passwords    = var.validator_signer_account_passwords
+  #validator_signer_private_keys         = var.validator_signer_private_keys
+  service_account_scopes                = var.service_account_scopes
+}
