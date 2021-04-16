@@ -172,7 +172,9 @@ cat <<'EOF' > /root/backup.crontab
 # backup via rsync run every six hours at 00:17 past the hour
 17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
 EOF
-/usr/bin/crontab /root/backup.crontab
+
+# do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
+#/usr/bin/crontab /root/backup.crontab
 
 # ---- Create restore script
 echo "Creating chaindata restore script" | logger
@@ -238,6 +240,8 @@ chmod u+x /root/restore_rsync.sh
 echo "Configuring aliases" | logger
 echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
 echo "alias ll='ls -laF'" >> /root/.bashrc
+echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /root/.bashrc
+echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /etc/skel/.bashrc
 
 # ---- Install Stackdriver Agent
 echo "Installing Stackdriver agent" | logger
@@ -454,6 +458,11 @@ sed -i.bak 's/^log_level/# log_level/' $DATA_DIR/config/config.toml
 #sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.ag-chain-cosmos/config/config.toml
 sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $DATA_DIR/config/config.toml
 
+# set publicly reachable p2p addr in config.toml
+sed -i.bak 's/external_address = ""/#external_address = ""/' $DATA_DIR/config/config.toml
+echo "# external address to advertise to p2p network \n" >> $DATA_DIR/config/config.toml
+echo "external_address = \"tcp://${validator_external_address}:26656\"" >> $DATA_DIR/config/config.toml
+
 echo "Setting up ag-chain-cosmos service in systemd" | logger
 tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
 [Unit]
@@ -463,7 +472,7 @@ After=network-online.target
 [Service]
 User=root
 Environment="OTEL_EXPORTER_PROMETHEUS_PORT=9464"
-ExecStart=/root/go/bin/ag-chain-cosmos start --log_level=warn
+ExecStart=/root/go/bin/ag-chain-cosmos start --log_level=info
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096
@@ -531,6 +540,15 @@ cd node_exporter-*.*-amd64
 #echo "Removing compilers and unnecessary packages" | logger
 # apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
 # apt -y autoremove
+
+# reinstall fluentd which is getting removed by something
+# ---- Install Fluent Log Collector
+echo "Installing google fluent log collector agent" | logger
+#curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
+#bash add-logging-agent-repo.sh
+apt install -y google-fluentd
+apt install -y google-fluentd-catch-all-config-structured
+systemctl restart google-fluentd
 
 echo "install completed, chain syncing" | logger
 echo "for sync status: ag-cosmos-helper status 2>&1 | jq .SyncInfo"

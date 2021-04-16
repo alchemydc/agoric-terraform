@@ -81,15 +81,26 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
   Apple Mac arm64 (M1) users presently will not be able to use Terraform to deploy infrastructure on GCP until the arm64 release of this provider is cut, which is expected any day now (as of 29 March 2021)
 
 ## Known Issues
-* The backup node is provisioned sufficiently to sync the Agoric chain, but the backup/restore of chaindata functionality isn't yet working.
+* The backup node is provisioned sufficiently to sync the Agoric chain, but the backup/restore of chaindata functionality isn't yet working.  In addition to the operator key mnemonic, it's also critical to backup config/node_key.json and config/priv_validator_key.json, which can presently be done manually by running `/root/backup_rsync.sh`
 * The google-fluent package appears to get clobbered by something in the Agoric toolchain, and needs to be reinstalled post-provision in order for Stackdriver logging to work.
 * Firewall is created in GCP VPC.  Host baesd rules (nftables) are also created (to /etc/nftables.conf) but aren't activated by default.
 * Key management (backup/restore/etc) is not yet implemented.
 * Secrets management is not yet implmemented.  For now sensitive data is stored locally in terraform.tfvars, so it's not checked into git.  However, any secrets will be in the clear in the instance metadata, which is suboptimal.  Longer term we should look at Vault or similar for secrets management.
+* The agoric daemon outputs colorized syslog data!  This is a nightmare for log indexing/alerting/searching/etc.  Workaround to render the ANSI codes as colors in the logs is syslog escapes is `echo '$EscapeControlCharactersOnReceive off' >> /etc/rsyslog.conf && systemctl restart syslogd` (ugly!)
+
 
 ## Cheatsheet
 * How many peers am I connected to? `curl -s 127.0.0.1:26657/net_info  | grep n_peers`
 * Restore key from mnemonic: `ag-cosmos-helper keys add $KEY_NAME --recover`
+* See node status: `ag-cosmos-helper status 2>&1 | jq .`
+* Check out the [explorer](https://testnet.explorer.agoric.net/)
+* Unjail your validator: `ag-cosmos-helper tx slashing unjail --broadcast-mode=block --from=$YOUR_agoric1address --chain-id=agorictest-9 --gas=auto --gas-adjustment=1.4`
+* Run the node interactively (rather than from systemd): `ag-chain-cosmos start --log_level=info`
+* See remote peers: `curl -s 127.0.0.1:26657/net_info | jq .result.peers | grep remote`
+* Consensus black magic: `curl -s localhost:26657/consensus_state | jq '.result.round_state.height_vote_set[0].prevotes_bit_array'`
+* Check your balance: `ag-cosmos-helper query bank balances `ag-cosmos-helper keys show -a $YOUR_KEY_NAME`
+* Send funds: `ag-chain-cosmos tx bank send --chain-id agorictest-9 --keyring-dir ~/.ag-cosmos-helper "$FROM_KEY_NAME" "$TO_KEY_NAME" 1uagstake
+* Edit your validator details after creation: `ag-cosmos-helper tx staking edit-validator --from "$KEY_NAME" --chain-id "agorictest-9" --moniker "YourValidatorMoniker" --website "https://yoursite.org" --details "your_details" --keyring-dir ~/.ag-cosmos-helper/
 
 ## Credit
 To [Javier Cortejoso](https://github.com/jcortejoso) at Clabs who created the [framework](https://github.com/alchemydc/celo-monorepo/tree/master/packages/terraform-modules-public) upon which this code is based.

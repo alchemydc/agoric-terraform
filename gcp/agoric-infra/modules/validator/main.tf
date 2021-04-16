@@ -69,6 +69,7 @@ resource "google_compute_instance" "validator" {
       reset_chain_data : var.reset_chain_data,
       rid : count.index,
       prometheus_exporter_tarball : var.prometheus_exporter_tarball
+      validator_external_address : google_compute_address.validator[count.index].address
     }
   )
   
