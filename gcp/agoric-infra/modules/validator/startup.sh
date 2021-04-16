@@ -492,7 +492,7 @@ table inet filter {
                 tcp dport { 22, 26656 } ct state new accept
 
                 # permit prometheus access to telemetry ports but ONLY from agoric
-                ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 26660} ct state new accept
+                ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 9100, 26660} ct state new accept
 
                 # accept neighbour discovery otherwise IPv6 connectivity breaks.
                 #ip6 nexthdr icmpv6 icmpv6 type { nd-neighbor-solicit,  nd-router-advert, nd-neighbor-advert } accept
