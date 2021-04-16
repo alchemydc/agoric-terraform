@@ -81,6 +81,7 @@ module "agoric_cluster" {
   agoric_node_release_tag                = var.agoric_node_release["tag"]
   network_id                             = var.network_id
   block_time                             = var.block_time
+  prometheus_exporter_tarball            = var.prometheus_exporter_tarball
   
 }
 

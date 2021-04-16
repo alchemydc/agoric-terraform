@@ -73,6 +73,10 @@ resource "google_compute_firewall" "agoric_telemetry_firewall" {
     protocol = "tcp"
     ports    = ["26660"]
   }
+  allow {
+    protocol = "tcp"
+    ports    = ["9100"]
+  }
 }
 
 module "backup_node" {
@@ -110,5 +114,6 @@ module "validator" {
   #validator_signer_account_addresses    = var.validator_signer_account_addresses
   #validator_signer_account_passwords    = var.validator_signer_account_passwords
   #validator_signer_private_keys         = var.validator_signer_private_keys
+  prometheus_exporter_tarball           = var.prometheus_exporter_tarball
   service_account_scopes                = var.service_account_scopes
 }

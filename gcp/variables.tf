@@ -63,7 +63,7 @@ variable agoric_node_release {
 
   default = {
     repository = "https://github.com/Agoric/agoric-sdk"
-    tag        = "agorictest-8"
+    tag        = "agorictest-9"
   }
 }
 
@@ -190,4 +190,10 @@ variable "service_account_scopes" {
 variable "GCP_DEFAULT_SERVICE_ACCOUNT" {
   description = "gcp default service account for project, $projectid-compute@developer.gserviceaccount.com"
   type = string
+}
+
+variable prometheus_exporter_tarball {
+  type        = string
+  description = "URI to download the prometheus node exporter from"
+  default = "https://github.com/prometheus/node_exporter/releases/download/v1.1.2/node_exporter-1.1.2.linux-amd64.tar.gz"
 }

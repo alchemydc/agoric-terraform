@@ -99,3 +99,8 @@ variable "service_account_scopes" {
   description = "Scopes to apply to the service account which all nodes in the cluster will inherit"
   type        = list(string)
 }
+
+variable prometheus_exporter_tarball {
+  type        = string
+  description = "URI to download the prometheus node exporter from"
+}

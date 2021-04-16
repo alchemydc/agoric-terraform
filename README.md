@@ -81,12 +81,15 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
   Apple Mac arm64 (M1) users presently will not be able to use Terraform to deploy infrastructure on GCP until the arm64 release of this provider is cut, which is expected any day now (as of 29 March 2021)
 
 ## Known Issues
-* Presently only the backup node is created, not the validator.
 * The backup node is provisioned sufficiently to sync the Agoric chain, but the backup/restore of chaindata functionality isn't yet working.
 * The google-fluent package appears to get clobbered by something in the Agoric toolchain, and needs to be reinstalled post-provision in order for Stackdriver logging to work.
 * Firewall is created in GCP VPC.  Host baesd rules (nftables) are also created (to /etc/nftables.conf) but aren't activated by default.
 * Key management (backup/restore/etc) is not yet implemented.
 * Secrets management is not yet implmemented.  For now sensitive data is stored locally in terraform.tfvars, so it's not checked into git.  However, any secrets will be in the clear in the instance metadata, which is suboptimal.  Longer term we should look at Vault or similar for secrets management.
+
+## Cheatsheet
+* How many peers am I connected to? `curl -s 127.0.0.1:26657/net_info  | grep n_peers`
+* Restore key from mnemonic: `ag-cosmos-helper keys add $KEY_NAME --recover`
 
 ## Credit
 To [Javier Cortejoso](https://github.com/jcortejoso) at Clabs who created the [framework](https://github.com/alchemydc/celo-monorepo/tree/master/packages/terraform-modules-public) upon which this code is based.

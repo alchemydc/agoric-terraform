@@ -6,7 +6,7 @@ export HOME="/root"
 echo "Updating packages" | logger
 apt update && apt -y upgrade
 echo "Installing htop and screen" | logger
-apt install -y htop screen
+apt install -y htop screen wget
 
 # ---- Configure logrotate ----
 echo "Configuring logrotate" | logger
@@ -519,6 +519,14 @@ echo "systemctl status ag-chain-cosmos"
  systemctl daemon-reload
  systemctl start ag-chain-cosmos
 
+# install prometheus node exporter
+mkdir -p $HOME/prometheus
+cd $HOME/prometheus
+wget ${prometheus_exporter_tarball}
+tar xvfz node_exporter-*.*-amd64.tar.gz
+cd node_exporter-*.*-amd64
+./node_exporter &    # fixme do this with systemd, and run as not root!
+
 #--- remove compilers
 #echo "Removing compilers and unnecessary packages" | logger
 # apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
@@ -527,3 +535,5 @@ echo "systemctl status ag-chain-cosmos"
 echo "install completed, chain syncing" | logger
 echo "for sync status: ag-cosmos-helper status 2>&1 | jq .SyncInfo"
 echo "or check stackdriver logs for this instance"
+
+
