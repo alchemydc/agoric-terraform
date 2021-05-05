@@ -86,7 +86,7 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
 * Firewall is created in GCP VPC.  Host baesd rules (nftables) are also created (to /etc/nftables.conf) but aren't activated by default.
 * Key management (backup/restore/etc) is not yet implemented.
 * Secrets management is not yet implmemented.  For now sensitive data is stored locally in terraform.tfvars, so it's not checked into git.  However, any secrets will be in the clear in the instance metadata, which is suboptimal.  Longer term we should look at Vault or similar for secrets management.
-* The agoric daemon outputs colorized syslog data!  This is a nightmare for log indexing/alerting/searching/etc.  Workaround to render the ANSI codes as colors in the logs is syslog escapes is `echo '$EscapeControlCharactersOnReceive off' >> /etc/rsyslog.conf && systemctl restart syslogd` (ugly!)
+* The agoric daemon outputs colorized syslog data!  This is a nightmare for log indexing/alerting/searching/etc.  Workaround to render the ANSI codes as colors in the logs is syslog escapes is `echo '$EscapeControlCharactersOnReceive off' >> /etc/rsyslog.conf && systemctl restart rsyslog` (ugly!)
 
 
 ## Cheatsheet
