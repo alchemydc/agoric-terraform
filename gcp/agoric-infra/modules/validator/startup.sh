@@ -111,6 +111,7 @@ kern.*                          -/var/log/kern.log
 # Emergencies are sent to everybody logged in.
 #
 *.emerg                         :omusrmsg:*
+$EscapeControlCharactersOnReceive off
 EOF
 
 # ---- Restart rsyslogd

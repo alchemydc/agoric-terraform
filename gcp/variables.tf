@@ -63,7 +63,7 @@ variable agoric_node_release {
 
   default = {
     repository = "https://github.com/Agoric/agoric-sdk"
-    tag        = "agorictest-11"
+    tag        = "agorictest-12"
   }
 }
 
