@@ -27,7 +27,7 @@ variable instance_types {
 
   default = {
     validator           = "n1-standard-4"
-    backup_node         = "n1-standard-2"
+    backup_node         = "n1-standard-4"
   }
 }
 

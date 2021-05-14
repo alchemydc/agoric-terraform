@@ -492,8 +492,13 @@ sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persisten
 
 # set publicly reachable p2p addr in config.toml
 sed -i.bak 's/external_address = ""/#external_address = ""/' $DATA_DIR/config/config.toml
-echo "# external address to advertise to p2p network \n" >> $DATA_DIR/config/config.toml
+echo "# external address to advertise to p2p network" >> $DATA_DIR/config/config.toml
 echo "external_address = \"tcp://${fullnode_external_address}:26656\"" >> $DATA_DIR/config/config.toml
+
+# bind RPC listener to 0.0.0.0
+#laddr = "laddr = "tcp://127.0.0.1:26657""
+sed -i.bak 's/127.0.0.1:26657/0.0.0.0:26657/' $DATA_DIR/config/config.toml
+
 
 echo "Setting up ag-chain-cosmos service in systemd" | logger
 tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
