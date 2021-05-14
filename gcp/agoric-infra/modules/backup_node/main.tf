@@ -65,9 +65,13 @@ resource "google_compute_instance" "backup_node" {
       max_peers : var.backup_node_max_peers,
       network_id : var.network_id,
       validator_name : var.validator_name,
+      node_name : var.node_name,
+      node_name   : var.node_name,
       gcloud_project : var.gcloud_project,
       reset_chain_data : var.reset_chain_data,
       rid : count.index,
+      prometheus_exporter_tarball : var.prometheus_exporter_tarball,
+      fullnode_external_address : google_compute_address.backup_node[count.index].address
     }
   )
   

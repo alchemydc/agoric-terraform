@@ -17,7 +17,7 @@ variable replicas {
 
   default = {
     validator           = 1 
-    backup_node         = 0 
+    backup_node         = 1 
   }
 }
 
@@ -71,6 +71,12 @@ variable validator_name {
   type        = string
   description = "The validator Name"
   default     = "YourValidator"
+}
+
+variable node_name {
+  type        = string
+  description = "The node Name /moniker"
+  default     = "YourMoniker"
 }
 
 variable reset_chain_data {

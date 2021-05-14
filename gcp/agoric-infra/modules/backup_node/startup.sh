@@ -6,7 +6,7 @@ export HOME="/root"
 echo "Updating packages" | logger
 apt update && apt -y upgrade
 echo "Installing htop and screen" | logger
-apt install -y htop screen
+apt install -y htop screen wget
 
 # ---- Configure logrotate ----
 echo "Configuring logrotate" | logger
@@ -111,6 +111,7 @@ kern.*                          -/var/log/kern.log
 # Emergencies are sent to everybody logged in.
 #
 *.emerg                         :omusrmsg:*
+$EscapeControlCharactersOnReceive off
 EOF
 
 # ---- Restart rsyslogd
@@ -172,7 +173,9 @@ cat <<'EOF' > /root/backup.crontab
 # backup via rsync run every six hours at 00:17 past the hour
 17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
 EOF
-/usr/bin/crontab /root/backup.crontab
+
+# do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
+#/usr/bin/crontab /root/backup.crontab
 
 # ---- Create restore script
 echo "Creating chaindata restore script" | logger
@@ -234,10 +237,43 @@ then
 EOF
 chmod u+x /root/restore_rsync.sh
 
+# ---- Create restore validator keys from rsync script
+echo "Creating rsync validator keys restore script" | logger
+cat <<'EOF' > /root/restore_validator_keys_rsync.sh
+#!/bin/bash
+set -x
+
+# test to see if chaindata exists in the rsync chaindata bucket
+gsutil -q stat gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json
+if [ $? -eq 0 ]
+then
+  #validator key exists in bucket
+  echo "stopping ag-chain-cosmos.service" | logger
+  systemctl stop ag-chain-cosmos.service
+  echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
+  mkdir -p /root/.ag-chain-cosmos/config
+  gsutil gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.ag-chain-cosmos/config/
+  gsutil gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.ag-chain-cosmos/config/
+  echo "to interactively restoring private key from mnemonic, "
+  echo "run ag-cosmos-helper keys add $KEY_NAME --recover"
+  
+  echo "do not forget to restart ag-chain-cosmos after importing keys, with 'systemctl start ag-chain-cosmos'"
+  #echo "restarting ag-chain-cosmos.service" | logger
+  #sleep 3
+  #systemctl start ag-chain-cosmos.service
+  else
+    echo "No validator keys found in bucket gs://${gcloud_project}-chaindata-rsync, aborting restore" | logger
+  fi
+EOF
+chmod u+x /root/restore_validator_keys_rsync.sh
+
+
 # ---- Useful aliases ----
 echo "Configuring aliases" | logger
 echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
 echo "alias ll='ls -laF'" >> /root/.bashrc
+echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /root/.bashrc
+echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /etc/skel/.bashrc
 
 # ---- Install Stackdriver Agent
 echo "Installing Stackdriver agent" | logger
@@ -426,7 +462,7 @@ echo $chainName
 # NOTE: The `--home` flag (or `AG_CHAIN_COSMOS_HOME` environment variable) determines where the chain state is stored.
 # By default, this is `$HOME/.ag-chain-cosmos`.
 #ag-chain-cosmos init --chain-id $chainName $MONIKER
-ag-chain-cosmos init --chain-id $chainName ${validator_name}
+ag-chain-cosmos init --chain-id $chainName ${node_name}
 
 # Download the genesis file
 curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
@@ -434,11 +470,11 @@ curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json
 ag-chain-cosmos unsafe-reset-all
 
 #backup state file
-cp $DATA_DIR/data/priv_validator_state.json /root/
+#cp $DATA_DIR/data/priv_validator_state.json /root/
 #restore chain data from tarball
-/root/restore.sh
+#/root/restore.sh
 # restore state file
-cp -vf /root/priv_validator_state.json $DATA_DIR/data/priv_validator_state.json
+#cp -vf /root/priv_validator_state.json $DATA_DIR/data/priv_validator_state.json
 
 # Set peers variable to the correct value
 peers=$(jq '.peers | join(",")' < chain.json)
@@ -454,6 +490,11 @@ sed -i.bak 's/^log_level/# log_level/' $DATA_DIR/config/config.toml
 #sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.ag-chain-cosmos/config/config.toml
 sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $DATA_DIR/config/config.toml
 
+# set publicly reachable p2p addr in config.toml
+sed -i.bak 's/external_address = ""/#external_address = ""/' $DATA_DIR/config/config.toml
+echo "# external address to advertise to p2p network \n" >> $DATA_DIR/config/config.toml
+echo "external_address = \"tcp://${fullnode_external_address}:26656\"" >> $DATA_DIR/config/config.toml
+
 echo "Setting up ag-chain-cosmos service in systemd" | logger
 tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
 [Unit]
@@ -463,7 +504,7 @@ After=network-online.target
 [Service]
 User=root
 Environment="OTEL_EXPORTER_PROMETHEUS_PORT=9464"
-ExecStart=/root/go/bin/ag-chain-cosmos start --log_level=warn
+ExecStart=/root/go/bin/ag-chain-cosmos start --log_level=info
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096
@@ -489,10 +530,11 @@ table inet filter {
                 ct state established,related accept
 
                 # activate the following line to accept common local services
-                tcp dport { 22, 26656 } ct state new accept
+                # note this exposes the RPC to the Internet
+                tcp dport { 22, 26656, 26657 } ct state new accept
 
                 # permit prometheus access to telemetry ports but ONLY from agoric
-                ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 26660} ct state new accept
+                ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 9100, 26660} ct state new accept
 
                 # accept neighbour discovery otherwise IPv6 connectivity breaks.
                 #ip6 nexthdr icmpv6 icmpv6 type { nd-neighbor-solicit,  nd-router-advert, nd-neighbor-advert } accept
@@ -519,11 +561,30 @@ echo "systemctl status ag-chain-cosmos"
  systemctl daemon-reload
  systemctl start ag-chain-cosmos
 
+# install prometheus node exporter
+mkdir -p $HOME/prometheus
+cd $HOME/prometheus
+wget ${prometheus_exporter_tarball}
+tar xvfz node_exporter-*.*-amd64.tar.gz
+cd node_exporter-*.*-amd64
+./node_exporter &    # fixme do this with systemd, and run as not root!
+
 #--- remove compilers
 #echo "Removing compilers and unnecessary packages" | logger
 # apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
 # apt -y autoremove
 
+# reinstall fluentd which is getting removed by something
+# ---- Install Fluent Log Collector
+echo "Installing google fluent log collector agent" | logger
+#curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
+#bash add-logging-agent-repo.sh
+apt install -y google-fluentd
+apt install -y google-fluentd-catch-all-config-structured
+systemctl restart google-fluentd
+
 echo "install completed, chain syncing" | logger
 echo "for sync status: ag-cosmos-helper status 2>&1 | jq .SyncInfo"
 echo "or check stackdriver logs for this instance"
+
+

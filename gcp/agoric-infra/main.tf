@@ -54,6 +54,18 @@ resource "google_compute_firewall" "agoric_p2p_firewall" {
   }
 }
 
+resource "google_compute_firewall" "agoric_rpc_firewall" {
+  name    = "${var.agoric_env}-agoric-rpc-firewall"
+  network = var.network_name
+
+  target_tags = concat(local.firewall_target_tags_backup_node)
+
+  allow {
+    protocol = "tcp"
+    ports    = ["26657"]
+  }
+}
+
 resource "google_compute_firewall" "agoric_telemetry_firewall" {
   name    = "${var.agoric_env}-agoric-telemetry-firewall"
   network = var.network_name
@@ -91,8 +103,10 @@ module "backup_node" {
   network_id                            = var.network_id
   network_name                          = var.network_name
   validator_name                        = var.validator_name
+  node_name                             = var.node_name
   network_uri                           = var.network_uri
   backup_node_count                     = var.backup_node_count
+  prometheus_exporter_tarball           = var.prometheus_exporter_tarball
   service_account_scopes                = var.service_account_scopes
 }
 

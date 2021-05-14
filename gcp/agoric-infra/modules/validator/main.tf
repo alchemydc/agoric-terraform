@@ -30,7 +30,7 @@ resource "google_compute_instance" "validator" {
 
   count = var.validator_count
 
-  tags = ["${var.agoric_env}-backup-node"]
+  tags = ["${var.agoric_env}-validator"]
 
   allow_stopping_for_update = true
 
@@ -68,7 +68,7 @@ resource "google_compute_instance" "validator" {
       gcloud_project : var.gcloud_project,
       reset_chain_data : var.reset_chain_data,
       rid : count.index,
-      prometheus_exporter_tarball : var.prometheus_exporter_tarball
+      prometheus_exporter_tarball : var.prometheus_exporter_tarball,
       validator_external_address : google_compute_address.validator[count.index].address
     }
   )

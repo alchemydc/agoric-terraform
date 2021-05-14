@@ -79,6 +79,11 @@ variable validator_name {
   description = "The validator Name / moniker"
 }
 
+variable node_name {
+  type        = string
+  description = "The validator Name / moniker"
+}
+
 variable "stackdriver_logging_exclusions" {
   description = "List of objects that define logs to exclude on stackdriver"
   type = map(object({

@@ -66,7 +66,17 @@ variable validator_name {
   description = "The validator Name"
 }
 
+variable node_name {
+  type        = string
+  description = "The full node Name/moniker"
+}
+
 variable service_account_scopes {
   type        = list(string)
   description = "Scopes to apply to the service account which all nodes in the cluster will inherit"
+}
+
+variable prometheus_exporter_tarball {
+  type        = string
+  description = "URI to download the prometheus node exporter from"
 }

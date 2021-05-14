@@ -237,6 +237,37 @@ then
 EOF
 chmod u+x /root/restore_rsync.sh
 
+# ---- Create restore validator keys from rsync script
+echo "Creating rsync validator keys restore script" | logger
+cat <<'EOF' > /root/restore_validator_keys_rsync.sh
+#!/bin/bash
+set -x
+
+# test to see if chaindata exists in the rsync chaindata bucket
+gsutil -q stat gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json
+if [ $? -eq 0 ]
+then
+  #validator key exists in bucket
+  echo "stopping ag-chain-cosmos.service" | logger
+  systemctl stop ag-chain-cosmos.service
+  echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
+  mkdir -p /root/.ag-chain-cosmos/config
+  gsutil gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.ag-chain-cosmos/config/
+  gsutil gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.ag-chain-cosmos/config/
+  echo "to interactively restoring private key from mnemonic, "
+  echo "run ag-cosmos-helper keys add $KEY_NAME --recover"
+  
+  echo "do not forget to restart ag-chain-cosmos after importing keys, with 'systemctl start ag-chain-cosmos'"
+  #echo "restarting ag-chain-cosmos.service" | logger
+  #sleep 3
+  #systemctl start ag-chain-cosmos.service
+  else
+    echo "No validator keys found in bucket gs://${gcloud_project}-chaindata-rsync, aborting restore" | logger
+  fi
+EOF
+chmod u+x /root/restore_validator_keys_rsync.sh
+
+
 # ---- Useful aliases ----
 echo "Configuring aliases" | logger
 echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
