@@ -175,6 +175,7 @@ cat <<'EOF' > /root/backup.crontab
 EOF
 
 # do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
+# so as not to interrupt consensus service on the validator node.
 #/usr/bin/crontab /root/backup.crontab
 
 # ---- Create restore script
@@ -252,10 +253,12 @@ then
   systemctl stop ag-chain-cosmos.service
   echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
   mkdir -p /root/.ag-chain-cosmos/config
-  gsutil gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.ag-chain-cosmos/config/
-  gsutil gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.ag-chain-cosmos/config/
+  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.ag-chain-cosmos/config/
+  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.ag-chain-cosmos/config/
   echo "to interactively restoring private key from mnemonic, "
-  echo "run ag-cosmos-helper keys add $KEY_NAME --recover"
+  echo "ag-cosmos-helper keys add $KEY_NAME --recover"
+  echo "and then"
+  echo "ag-chain-cosmos init --chain-id ${agoric_node_release_tag} ${validator_name}"
   
   echo "do not forget to restart ag-chain-cosmos after importing keys, with 'systemctl start ag-chain-cosmos'"
   #echo "restarting ag-chain-cosmos.service" | logger

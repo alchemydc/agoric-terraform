@@ -374,7 +374,7 @@ apt update && apt upgrade -y
 
 # Download the nodesource PPA for Node.js
 echo "Installing nodejs and yarn" | logger
-curl https://deb.nodesource.com/setup_12.x |  bash
+curl https://deb.nodesource.com/setup_14.x |  bash
 
 # Download the Yarn repository configuration
 # See instructions on https://legacy.yarnpkg.com/en/docs/install/
@@ -386,7 +386,7 @@ apt update
 
 # Install Node.js, Yarn, and build tools
 # Install jq for formatting of JSON data
-apt install nodejs=12.* yarn build-essential jq git nftables -y
+apt install nodejs=14.* yarn build-essential jq git nftables -y
 
 # First remove any existing old Go installation
  rm -rf /usr/local/go
