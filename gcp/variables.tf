@@ -48,7 +48,7 @@ variable agoric_env {
 variable network_uri {
   description = "The URI for the Agoric network we are connecting to"
   type        = string
-  default     = "https://testnet.agoric.net"
+  default     = "https://main.agoric.net"
 }
 
 variable network_id {
@@ -62,8 +62,8 @@ variable agoric_node_release {
   type        = map(string)
 
   default = {
-    repository = "https://github.com/Agoric/agoric-sdk"
-    tag        = "agorictest-17"
+    repository = "https://github.com/Agoric/ag0"
+    tag        = "agoric-3.1"
   }
 }
 

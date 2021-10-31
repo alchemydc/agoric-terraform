@@ -129,18 +129,18 @@ cat <<'EOF' > /root/backup.sh
 set -x
 
 echo "Starting chaindata backup" | logger
-systemctl stop ag-chain-cosmos.service
+systemctl stop agd.service
 sleep 5
-# FIXME: not sure if anything else in .ag-chain-cosmos/data can be backed up to speed bootstrapping of new nodes
-mkdir -p /root/.ag-chain-cosmos/backup
+# FIXME: not sure if anything else in .agd/data can be backed up to speed bootstrapping of new nodes
+mkdir -p /root/.agd/backup
 # backup only the data for now, not the config
-#tar -C /root/.ag-chain-cosmos -zcvf /root/.ag-chain-cosmos/backup/chaindata.tgz data config
-tar -C /root/.ag-chain-cosmos -zcvf /root/.ag-chain-cosmos/backup/chaindata.tgz data
-gsutil cp /root/.ag-chain-cosmos/backup/chaindata.tgz gs://${gcloud_project}-chaindata
-rm -f /root/.ag-chain-cosmos/backup/chaindata.tgz
+#tar -C /root/.agd -zcvf /root/.agd/backup/chaindata.tgz data config
+tar -C /root/.agd -zcvf /root/.agd/backup/chaindata.tgz data
+gsutil cp /root/.agd/backup/chaindata.tgz gs://${gcloud_project}-chaindata
+rm -f /root/.agd/backup/chaindata.tgz
 echo "Chaindata backup completed" | logger
 sleep 3
-systemctl start ag-chain-cosmos.service
+systemctl start agd.service
 EOF
 chmod u+x /root/backup.sh
 
@@ -152,14 +152,14 @@ cat <<'EOF' > /root/backup_rsync.sh
 set -x
 
 echo "Starting rsync chaindata backup" | logger
-systemctl stop ag-chain-cosmos.service
+systemctl stop agd.service
 sleep 5
 # will backup config via rsync, since it's easy to selectively restore it or not
-gsutil -m rsync -d -r /root/.ag-chain-cosmos/config  gs://${gcloud_project}-chaindata-rsync/config
-gsutil -m rsync -d -r /root/.ag-chain-cosmos/data  gs://${gcloud_project}-chaindata-rsync/data
+gsutil -m rsync -d -r /root/.agd/config  gs://${gcloud_project}-chaindata-rsync/config
+gsutil -m rsync -d -r /root/.agd/data  gs://${gcloud_project}-chaindata-rsync/data
 echo "rsync chaindata backup completed" | logger
 sleep 3
-systemctl start ag-chain-cosmos.service
+systemctl start agd.service
 EOF
 chmod u+x /root/backup_rsync.sh
 
@@ -189,22 +189,22 @@ gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
 if [ $? -eq 0 ]
 then
   #chaindata exists in bucket
-  mkdir -p /root/.ag-chain-cosmos/data
-  mkdir -p /root/.ag-chain-cosmos/config
-  mkdir -p /root/.ag-chain-cosmos/restore
+  mkdir -p /root/.agd/data
+  mkdir -p /root/.agd/config
+  mkdir -p /root/.agd/restore
   echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
-  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz /root/.ag-chain-cosmos/restore/chaindata.tgz
+  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz /root/.agd/restore/chaindata.tgz
   echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
-  systemctl stop ag-chain-cosmos.service
+  systemctl stop agd.service
   sleep 3
   echo "untarring chaindata" | logger
-  tar zxvf /root/.ag-chain-cosmos/restore/chaindata.tgz --directory /root/.ag-chain-cosmos
+  tar zxvf /root/.agd/restore/chaindata.tgz --directory /root/.agd
   echo "removing chaindata tarball" | logger
-  rm -rf /root/.ag-chain-cosmos/restore/chaindata.tgz
+  rm -rf /root/.agd/restore/chaindata.tgz
   sleep 3
   # echo re-enable this after ensuring we can cleanly restarted daemon with restored data
-  #echo "starting ag-chain-cosmos.service" | logger
-  #systemctl start ag-chain-cosmos.service
+  #echo "starting agd.service" | logger
+  #systemctl start agd.service
   else
     echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting warp restore" | logger
   fi
@@ -222,16 +222,16 @@ gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.
 if [ $? -eq 0 ]
 then
   #chaindata exists in bucket
-  echo "stopping ag-chain-cosmos.service" | logger
-  systemctl stop ag-chain-cosmos.service
+  echo "stopping agd.service" | logger
+  systemctl stop agd.service
   #echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
-  #mkdir -p /root/.ag-chain-cosmos/config
-  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.ag-chain-cosmos/config
-  mkdir -p /root/.ag-chain-cosmos/data
-  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data /root/.ag-chain-cosmos/data
-  echo "restarting ag-chain-cosmos.service" | logger
+  #mkdir -p /root/.agd/config
+  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.agd/config
+  mkdir -p /root/.agd/data
+  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data /root/.agd/data
+  echo "restarting agd.service" | logger
   sleep 3
-  systemctl start ag-chain-cosmos.service
+  systemctl start agd.service
   else
     echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
   fi
@@ -249,21 +249,21 @@ gsutil -q stat gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.
 if [ $? -eq 0 ]
 then
   #validator key exists in bucket
-  echo "stopping ag-chain-cosmos.service" | logger
-  systemctl stop ag-chain-cosmos.service
+  echo "stopping agd.service" | logger
+  systemctl stop agd.service
   echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
-  mkdir -p /root/.ag-chain-cosmos/config
-  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.ag-chain-cosmos/config/
-  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.ag-chain-cosmos/config/
+  mkdir -p /root/.agd/config
+  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.agd/config/
+  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.agd/config/
   echo "to interactively restoring private key from mnemonic, "
   echo "ag-cosmos-helper keys add $KEY_NAME --recover"
   echo "and then"
-  echo "ag-chain-cosmos init --chain-id ${agoric_node_release_tag} ${validator_name}"
+  echo "agd init --chain-id ${agoric_node_release_tag} ${validator_name}"
   
-  echo "do not forget to restart ag-chain-cosmos after importing keys, with 'systemctl start ag-chain-cosmos'"
-  #echo "restarting ag-chain-cosmos.service" | logger
+  echo "do not forget to restart agd after importing keys, with 'systemctl start agd'"
+  #echo "restarting agd.service" | logger
   #sleep 3
-  #systemctl start ag-chain-cosmos.service
+  #systemctl start agd.service
   else
     echo "No validator keys found in bucket gs://${gcloud_project}-chaindata-rsync, aborting restore" | logger
   fi
@@ -306,7 +306,7 @@ swapon -s
 
 # gives a path similar to `/dev/sdb`
 DISK_PATH=$(readlink -f /dev/disk/by-id/google-${attached_disk_name})
-DATA_DIR=/root/.ag-chain-cosmos
+DATA_DIR=/root/.agd
 
 echo "Setting up persistent disk ${attached_disk_name} at $DISK_PATH..." | logger
 
@@ -362,41 +362,11 @@ bindkey -k F1 prev      # F11 = prev
 bindkey -k F2 next      # F12 = next
 EOF
 
-#echo "Configuring Docker..." | logger
-#cat <<'EOF' > '/etc/docker/daemon.json'
-#{
-#  "log-driver": "json-file",
-#  "log-opts": {
-#    "max-size": "10m",
-#    "max-file": "3",
-#    "mode": "non-blocking"
-#  }
-#}
-#EOF
-
-#echo "Restarting docker" | logger
-#systemctl restart docker
-
-# warp restore scripts disabled until they're tested w/ the agoric chaindata format
-# --- run restore script
-# this script tries to restore chaindata from a GCS hosted tarball.
-# if the chaindata doesn't exist on GCS, geth will start normal (slow) p2p sync
-#echo "Attempting to restore chaindata from backup tarball"
-#bash /root/restore.sh
-
-# todo: add some logic to look at the chaindata tarball bucket versus the rsync bucket and pick the best one.
-# for now we try both, with rsync taking precedence b/c it runs last.
-
-# --- run rsync restore script
-# this script tries to restore chaindata from a GCS hosted bucket via rsync.
-# if the chaindata doesn't exist on GCS, geth will start normal (slow) p2p sync, perhaps boosted by what the tarball provided
-#echo "Attempting to restore chaindata from backup via rsync"
-#bash /root/restore_rsync.sh
-
 # FIXME:parameterize these as variables and expose properly via terraform
 # presently used for local firewall rules, which really should be controlled by variables
 AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
 AGORIC_PROMETHEUS_IP="142.93.181.215"
+
 #AGORIC_PROMETHEUS_IP=`$AGORIC_PROMETHEUS_HOSTNAME | cut -d ' ' -f 4`
 # following will expose Agoric VM (SwingSet) metrics globally on tcp/94643
 # see https://github.com/Agoric/agoric-sdk/blob/master/packages/cosmic-swingset/README-telemetry.md for more info
@@ -440,7 +410,7 @@ EOF
 echo "checking out Agoric release from github" | logger
 cd $DATA_DIR
 git clone ${agoric_node_release_repository} -b ${agoric_node_release_tag}
-cd agoric-sdk
+cd ag0
 
 echo "Install and build Agoric Javascript packages" | logger
 yarn install
@@ -451,7 +421,8 @@ cd packages/cosmic-swingset && make
 
 # test to see agoric SDK is correctly installed
 echo "testing to see agoric SDK is correctly installed" | logger
-ag-chain-cosmos version --long
+#ag-chain-cosmos version --long
+agd version --long
 
 cd $DATA_DIR
 # First, get the network config for the current network.
@@ -465,12 +436,12 @@ echo $chainName
 # NOTE: The `--home` flag (or `AG_CHAIN_COSMOS_HOME` environment variable) determines where the chain state is stored.
 # By default, this is `$HOME/.ag-chain-cosmos`.
 #ag-chain-cosmos init --chain-id $chainName $MONIKER
-ag-chain-cosmos init --chain-id $chainName ${validator_name}
+agd init --chain-id $chainName ${validator_name}
 
 # Download the genesis file
 curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
 # Reset the state of your validator.
-ag-chain-cosmos unsafe-reset-all
+agd unsafe-reset-all
 
 #backup state file
 #cp $DATA_DIR/data/priv_validator_state.json /root/
@@ -487,10 +458,10 @@ seeds=$(jq '.seeds | join(",")' < chain.json)
 echo $peers
 echo $seeds
 # Fix `Error: failed to parse log level`
-#sed -i.bak 's/^log_level/# log_level/' $HOME/.ag-chain-cosmos/config/config.toml
+#sed -i.bak 's/^log_level/# log_level/' $HOME/.agd/config/config.toml
 sed -i.bak 's/^log_level/# log_level/' $DATA_DIR/config/config.toml
 # Replace the seeds and persistent_peers values
-#sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.ag-chain-cosmos/config/config.toml
+#sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.agd/config/config.toml
 sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $DATA_DIR/config/config.toml
 
 # set publicly reachable p2p addr in config.toml
@@ -498,8 +469,8 @@ sed -i.bak 's/external_address = ""/#external_address = ""/' $DATA_DIR/config/co
 echo "# external address to advertise to p2p network \n" >> $DATA_DIR/config/config.toml
 echo "external_address = \"tcp://${validator_external_address}:26656\"" >> $DATA_DIR/config/config.toml
 
-echo "Setting up ag-chain-cosmos service in systemd" | logger
-tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
+echo "Setting up agd service in systemd" | logger
+tee <<EOF >/dev/null /etc/systemd/system/agd.service
 [Unit]
 Description=Agoric Cosmos daemon
 After=network-online.target
@@ -508,7 +479,7 @@ After=network-online.target
 User=root
 Environment="OTEL_EXPORTER_PROMETHEUS_PORT=9464"
 Environment="SLOGFILE=$DATA_DIR/${validator_name}-${agoric_node_release_tag}-chain.slog"
-ExecStart=/root/go/bin/ag-chain-cosmos start --log_level=info
+ExecStart=/root/go/bin/agd start --log_level=info
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096
@@ -548,29 +519,28 @@ table inet filter {
 }
 EOF
 
-# disabling lost based firewall for testing
-#echo "Enabling firewall" | logger
-#systemctl enable nftables.service
-#systemctl start nftables.service
+echo "Enabling firewall" | logger
+systemctl enable nftables.service
+systemctl start nftables.service
 
 echo "configuring telemetry services" | logger
 echo "telemetry: swingset enabled at on tcp/9464 and tendermint enabled on tcp/26660"
 sed -i "s/prometheus = false/prometheus = true/" $DATA_DIR/config/config.toml
 
 # start via systemd
-echo "Setting ag-chain-cosmos to run from systemd" | logger
-echo "systemctl status ag-chain-cosmos"
- systemctl enable ag-chain-cosmos
+echo "Setting agd to run from systemd" | logger
+echo "systemctl status agd"
+ systemctl enable agd
  systemctl daemon-reload
- systemctl start ag-chain-cosmos
+ systemctl start agd
 
 # install prometheus node exporter
-mkdir -p $HOME/prometheus
-cd $HOME/prometheus
-wget ${prometheus_exporter_tarball}
-tar xvfz node_exporter-*.*-amd64.tar.gz
-cd node_exporter-*.*-amd64
-./node_exporter &    # fixme do this with systemd, and run as not root!
+#mkdir -p $HOME/prometheus
+#cd $HOME/prometheus
+#wget ${prometheus_exporter_tarball}
+#tar xvfz node_exporter-*.*-amd64.tar.gz
+#cd node_exporter-*.*-amd64
+#./node_exporter &    # fixme do this with systemd, and run as not root!
 
 #--- remove compilers
 #echo "Removing compilers and unnecessary packages" | logger
@@ -589,5 +559,3 @@ systemctl restart google-fluentd
 echo "install completed, chain syncing" | logger
 echo "for sync status: ag-cosmos-helper status 2>&1 | jq .SyncInfo"
 echo "or check stackdriver logs for this instance"
-
-

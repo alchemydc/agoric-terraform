@@ -36,7 +36,7 @@ resource "google_compute_instance" "validator" {
 
   boot_disk {
     initialize_params {
-      image = "debian-cloud/debian-10"
+      image = "debian-cloud/debian-11"
       size = 10
     }
   }
@@ -90,6 +90,6 @@ resource "google_compute_disk" "validator" {
   #type = "pd-ssd"
   type = "pd-standard"      #disk I/O doesn't yet warrant SSD backed validators
   # in GB
-  size                      = 50
+  size                      = 100
   physical_block_size_bytes = 4096
 }
