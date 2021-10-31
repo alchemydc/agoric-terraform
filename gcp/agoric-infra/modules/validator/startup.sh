@@ -507,6 +507,7 @@ After=network-online.target
 [Service]
 User=root
 Environment="OTEL_EXPORTER_PROMETHEUS_PORT=9464"
+Environment="SLOGFILE=$DATA_DIR/${validator_name}-${agoric_node_release_tag}-chain.slog"
 ExecStart=/root/go/bin/ag-chain-cosmos start --log_level=info
 Restart=on-failure
 RestartSec=3
