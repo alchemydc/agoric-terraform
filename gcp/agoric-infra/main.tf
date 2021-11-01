@@ -131,3 +131,32 @@ module "validator" {
   prometheus_exporter_tarball           = var.prometheus_exporter_tarball
   service_account_scopes                = var.service_account_scopes
 }
+
+ 
+#module "agent_policy" {
+#  source     = "terraform-google-modules/cloud-operations/google//modules/agent-policy"
+#  version    = "~> 0.1.0"
+#
+#  project_id = var.gcloud_project
+#  policy_id  = "ops-agents-policy"
+#  agent_rules = [
+#    {
+#      type               = "ops-agent"
+#      version            = "current-major"
+#      package_state      = "installed"
+#      enable_autoupgrade = true
+#    },
+#  ]
+#  #group_labels = [
+#  #  {
+#  #    env = "mainnet0"
+#  #    role = "validator"
+#  #  }
+#  #]
+#  os_types = [
+#    {
+#      short_name = "debian"
+#      version    = "11"
+#    },
+#  ]
+#}
