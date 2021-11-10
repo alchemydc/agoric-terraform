@@ -70,7 +70,7 @@ labels = {
       max_peers : var.backup_node_max_peers,
       network_id : var.network_id,
       validator_name : var.validator_name,
-      node_name : var.backup_node_name,
+      backup_node_name : var.backup_node_name,
       gcloud_project : var.gcloud_project,
       reset_chain_data : var.reset_chain_data,
       rid : count.index,

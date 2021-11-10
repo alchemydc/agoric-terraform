@@ -288,7 +288,7 @@ swapon -s
 
 # gives a path similar to `/dev/sdb`
 DISK_PATH=$(readlink -f /dev/disk/by-id/google-${attached_disk_name})
-DATA_DIR=/root/.ag-chain-cosmos
+DATA_DIR=/home/agoric/.agoric
 
 echo "Setting up persistent disk ${attached_disk_name} at $DISK_PATH..." | logger
 
@@ -437,7 +437,7 @@ chainName=\`jq -r .chainName < chain.json\`
 chainName=\$(jq -r .chainName < chain.json)
 # Confirm value: should be something like agoricdev-N.
 echo \$chainName
-ag0 init --chain-id \$chainName ${validator_name}
+ag0 init --chain-id \$chainName ${backup_node_name}
 # Download the genesis file
 curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
 # Reset the state of your validator.

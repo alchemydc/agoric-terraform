@@ -103,7 +103,7 @@ module "backup_node" {
   network_id                            = var.network_id
   network_name                          = var.network_name
   validator_name                        = var.validator_name
-  backup_node_name                             = var.backup_node_name
+  backup_node_name                      = var.backup_node_name
   network_uri                           = var.network_uri
   backup_node_count                     = var.backup_node_count
   prometheus_exporter_tarball           = var.prometheus_exporter_tarball
