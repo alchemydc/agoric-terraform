@@ -33,7 +33,7 @@ resource "google_compute_instance" "validator" {
   tags = ["${var.agoric_env}-validator"]
 
   labels = {
-      env = "mainnet0"
+      env = "${var.agoric_env}"
       role = "validator"
   }
 

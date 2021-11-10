@@ -32,11 +32,16 @@ resource "google_compute_instance" "backup_node" {
 
   tags = ["${var.agoric_env}-backup-node"]
 
+labels = {
+      env = "${var.agoric_env}"
+      role = "backup-node"
+  }
+
   allow_stopping_for_update = true
 
   boot_disk {
     initialize_params {
-      image = "debian-cloud/debian-10"
+      image = "debian-cloud/debian-11"
       size = 10
     }
   }
@@ -65,8 +70,7 @@ resource "google_compute_instance" "backup_node" {
       max_peers : var.backup_node_max_peers,
       network_id : var.network_id,
       validator_name : var.validator_name,
-      node_name : var.node_name,
-      node_name   : var.node_name,
+      node_name : var.backup_node_name,
       gcloud_project : var.gcloud_project,
       reset_chain_data : var.reset_chain_data,
       rid : count.index,
@@ -89,9 +93,9 @@ resource "google_compute_disk" "backup_node" {
   name  = "${local.name_prefix}-agoric-data-disk-${count.index}"
   count = var.backup_node_count
 
-  #type = "pd-ssd"
-  type = "pd-standard"      #disk I/O doesn't yet warrant SSD backed validators
+  type = "pd-ssd"
+  #type = "pd-standard"      #disk I/O doesn't yet warrant SSD backed validators
   # in GB
-  size                      = 10
+  size                      = 100
   physical_block_size_bytes = 4096
 }

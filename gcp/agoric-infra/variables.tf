@@ -79,7 +79,7 @@ variable validator_name {
   description = "The validator Name / moniker"
 }
 
-variable node_name {
+variable backup_node_name {
   type        = string
   description = "The validator Name / moniker"
 }

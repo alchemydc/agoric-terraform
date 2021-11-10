@@ -103,7 +103,7 @@ module "backup_node" {
   network_id                            = var.network_id
   network_name                          = var.network_name
   validator_name                        = var.validator_name
-  node_name                             = var.node_name
+  backup_node_name                             = var.backup_node_name
   network_uri                           = var.network_uri
   backup_node_count                     = var.backup_node_count
   prometheus_exporter_tarball           = var.prometheus_exporter_tarball
@@ -125,9 +125,6 @@ module "validator" {
   reset_chain_data                      = var.reset_chain_data
   validator_name                        = var.validator_name
   network_uri                           = var.network_uri
-  #validator_signer_account_addresses    = var.validator_signer_account_addresses
-  #validator_signer_account_passwords    = var.validator_signer_account_passwords
-  #validator_signer_private_keys         = var.validator_signer_private_keys
   prometheus_exporter_tarball           = var.prometheus_exporter_tarball
   service_account_scopes                = var.service_account_scopes
 }

@@ -74,7 +74,7 @@ module "agoric_cluster" {
   validator_count     = var.replicas["validator"]
 
   validator_name = var.validator_name
-  node_name = var.node_name
+  backup_node_name = var.backup_node_name
 
   reset_chain_data = var.reset_chain_data
 

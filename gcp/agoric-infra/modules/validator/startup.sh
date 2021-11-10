@@ -260,29 +260,17 @@ systemctl restart rsyslog
 #chmod u+x /root/restore_validator_keys_rsync.sh
 
 
+
+
+
+
+
 # ---- Useful aliases ----
 echo "Configuring aliases" | logger
 echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
 echo "alias ll='ls -laF'" >> /root/.bashrc
 #echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /root/.bashrc
 #echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /etc/skel/.bashrc
-
-# deprecated and replaced by Ops Agent. See https://cloud.google.com/stackdriver/docs/solutions/agents/ops-agent
-# ---- Install Stackdriver Agent
-#echo "Installing Stackdriver agent" | logger
-#curl -sSO https://dl.google.com/cloudagents/add-monitoring-agent-repo.sh
-#bash add-monitoring-agent-repo.sh
-#apt update -y
-#apt install -y stackdriver-agent
-#systemctl restart stackdriver-agent
-
-# ---- Install Fluent Log Collector
-#echo "Installing google fluent log collector agent" | logger
-#curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
-#bash add-logging-agent-repo.sh
-#apt install -y google-fluentd
-#apt install -y google-fluentd-catch-all-config-structured
-#systemctl restart google-fluentd
 
 # native terraform for install ops-agent isn't working, so workaround
 curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
@@ -387,6 +375,19 @@ apt update && apt upgrade -y
 #apt install nodejs=14.* yarn build-essential jq git nftables -y
 apt install build-essential jq git nftables -y
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 # First remove any existing old Go installation
  rm -rf /usr/local/go
 
@@ -402,6 +403,7 @@ export GO111MODULE=on
 export PATH=$PATH:/usr/local/go/bin:/home/agoric/go/bin
 alias ll='ls -laF'
 EOF
+chown agoric:agoric /home/agoric/.profile
 
 # Create agoric install script
 cat << EOF >> /home/agoric/install_agoric.sh
@@ -435,10 +437,6 @@ chainName=\`jq -r .chainName < chain.json\`
 chainName=\$(jq -r .chainName < chain.json)
 # Confirm value: should be something like agoricdev-N.
 echo \$chainName
-# Replace <your_moniker> with the public name of your node.
-# NOTE: The --home flag (or AG_CHAIN_COSMOS_HOME environment variable) determines where the chain state is stored.
-# By default, this is \$HOME/.ag-chain-cosmos.
-#ag-chain-cosmos init --chain-id $chainName $MONIKER
 ag0 init --chain-id \$chainName ${validator_name}
 # Download the genesis file
 curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 

@@ -6,7 +6,7 @@ export HOME="/root"
 echo "Updating packages" | logger
 apt update && apt -y upgrade
 echo "Installing htop and screen" | logger
-apt install -y htop screen wget
+apt install -y htop screen wget pigz
 
 # ---- Configure logrotate ----
 echo "Configuring logrotate" | logger
@@ -46,24 +46,19 @@ cat <<'EOF' > /etc/rsyslog.conf
 #
 # For more information install rsyslog-doc and see
 # /usr/share/doc/rsyslog-doc/html/configuration/index.html
-
 #################
 #### MODULES ####
 #################
-
 module(load="imuxsock") # provides support for local system logging
 module(load="imklog")   # provides kernel logging support
-
 ###########################
 #### GLOBAL DIRECTIVES ####
 ###########################
-
 #
 # Use traditional timestamp format.
 # To enable high precision timestamps, comment out the following line.
 #
 $ActionFileDefaultTemplate RSYSLOG_TraditionalFileFormat
-
 #
 # Set the default permissions for all log files.
 #
@@ -72,30 +67,23 @@ $FileGroup adm
 $FileCreateMode 0640
 $DirCreateMode 0755
 $Umask 0022
-
 #
 # Where to place spool and state files
 #
 $WorkDirectory /var/spool/rsyslog
-
 #
 # Include all config files in /etc/rsyslog.d/
 #
 $IncludeConfig /etc/rsyslog.d/*.conf
-
-
 ###############
 #### RULES ####
 ###############
-
 #
 # First some standard log files.  Log by facility.
 #
 auth,authpriv.*                 /var/log/auth.log
 *.*;auth,authpriv.none          -/var/log/syslog
 kern.*                          -/var/log/kern.log
-
-
 #
 # Some "catch-all" log files.
 #
@@ -106,7 +94,6 @@ kern.*                          -/var/log/kern.log
         auth,authpriv.none;\
         cron,daemon.none;\
         mail,news.none          -/var/log/messages
-
 #
 # Emergencies are sent to everybody logged in.
 #
@@ -114,182 +101,178 @@ kern.*                          -/var/log/kern.log
 $EscapeControlCharactersOnReceive off
 EOF
 
+
+
 # ---- Restart rsyslogd
 echo "Restarting rsyslogd" | logger
 systemctl restart rsyslog
 
 # ---- Create backup script
 echo "Creating chaindata backup script" | logger
-cat <<'EOF' > /root/backup.sh
+cat <<'EOF' > /home/agoric/backup_chaindata.sh
 #!/bin/bash
-# This script stops the agoric p2p/consensus daemon, tars up the chaindata (with gzip compression), and copies it to GCS.
+# This script stops the agoric cosmos ag0 p2p/consensus daemon, tars up the chaindata (with gzip compression), and copies it to GCS.
 # The 'chaindata' GCS bucket has versioning enabled, so if a corrupted tarball is uploaded, an older version can be selected for restore.
 # This takes quit some time, and takes quite a bit of local disk.
 # The rsync variant (below) is more efficient, but tarballs are more portable.
 set -x
 
+WORKING_DIR='/home/agoric/.agoric'
+
 echo "Starting chaindata backup" | logger
-systemctl stop ag-chain-cosmos.service
+sudo systemctl stop ag0.service
 sleep 5
-# FIXME: not sure if anything else in .ag-chain-cosmos/data can be backed up to speed bootstrapping of new nodes
-mkdir -p /root/.ag-chain-cosmos/backup
+
+mkdir -p $WORKING_DIR/backup
+
+echo "Tarring up chaindata to $WORKING_DIR/backup/chaindata.tgz" | logger
 # backup only the data for now, not the config
-#tar -C /root/.ag-chain-cosmos -zcvf /root/.ag-chain-cosmos/backup/chaindata.tgz data config
-tar -C /root/.ag-chain-cosmos -zcvf /root/.ag-chain-cosmos/backup/chaindata.tgz data
-gsutil cp /root/.ag-chain-cosmos/backup/chaindata.tgz gs://${gcloud_project}-chaindata
-rm -f /root/.ag-chain-cosmos/backup/chaindata.tgz
+#tar -I "pigz --fast" -C $WORKING_DIR -cvf $WORKING_DIR/backup/chaindata.tgz data config
+tar -I "pigz --fast" -C $WORKING_DIR -cvf $WORKING_DIR/backup/chaindata.tgz data
+
+echo "Copying tarball to GCS bucket gs://${gcloud_project}-chaindata" | logger
+#gsutil cp /root/.ag-chain-cosmos/backup/chaindata.tgz gs://${gcloud_project}-chaindata
+gsutil cp $WORKING_DIR/backup/chaindata.tgz gs://${gcloud_project}-chaindata
+
+echo "Removing tarball from local fs" | logger
+rm -f $WORKING_DIR/backup/chaindata.tgz
 echo "Chaindata backup completed" | logger
 sleep 3
-systemctl start ag-chain-cosmos.service
+systemctl start ag0.service
 EOF
-chmod u+x /root/backup.sh
+chmod u+x /home/agoric/backup_chaindata.sh
 
 # ---- Create rsync backup script
-echo "Creating rsync chaindata backup script" | logger
-cat <<'EOF' > /root/backup_rsync.sh
-#!/bin/bash
-# This script stops agoric p2p/consensus daemon, and uses rsync to copy chaindata to GCS.
-set -x
-
-echo "Starting rsync chaindata backup" | logger
-systemctl stop ag-chain-cosmos.service
-sleep 5
-# will backup config via rsync, since it's easy to selectively restore it or not
-gsutil -m rsync -d -r /root/.ag-chain-cosmos/config  gs://${gcloud_project}-chaindata-rsync/config
-gsutil -m rsync -d -r /root/.ag-chain-cosmos/data  gs://${gcloud_project}-chaindata-rsync/data
-echo "rsync chaindata backup completed" | logger
-sleep 3
-systemctl start ag-chain-cosmos.service
-EOF
-chmod u+x /root/backup_rsync.sh
+#echo "Creating rsync chaindata backup script" | logger
+#cat <<'EOF' > /root/backup_rsync.sh
+##!/bin/bash
+## This script stops agoric p2p/consensus daemon, and uses rsync to copy chaindata to GCS.
+#set -x
+#
+#echo "Starting rsync chaindata backup" | logger
+#systemctl stop ag-chain-cosmos.service
+#sleep 5
+## will backup config via rsync, since it's easy to selectively restore it or not
+#gsutil -m rsync -d -r /root/.ag-chain-cosmos/config  gs://${gcloud_project}-chaindata-rsync/config
+#gsutil -m rsync -d -r /root/.ag-chain-cosmos/data  gs://${gcloud_project}-chaindata-rsync/data
+#echo "rsync chaindata backup completed" | logger
+#sleep 3
+#systemctl start ag-chain-cosmos.service
+#EOF
+#chmod u+x /root/backup_rsync.sh
 
 # ---- Add backups to cron
 # note that this will make the backup_node geth unavailable during the backup, which is why
 # we run this on a dedicated backup node now instead of the attestation service txnode
-cat <<'EOF' > /root/backup.crontab
-# m h  dom mon dow   command
-# backup full tarball once a day at 00:57
-57 0 * * * /root/backup.sh > /dev/null 2>&1
-# backup via rsync run every six hours at 00:17 past the hour
-17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
-EOF
+#cat <<'EOF' > /root/backup.crontab
+## m h  dom mon dow   command
+## backup full tarball once a day at 00:57
+#57 0 * * * /root/backup.sh > /dev/null 2>&1
+## backup via rsync run every six hours at 00:17 past the hour
+#17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
+#EOF
 
 # do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
 #/usr/bin/crontab /root/backup.crontab
 
 # ---- Create restore script
-echo "Creating chaindata restore script" | logger
-cat <<'EOF' > /root/restore.sh
-#!/bin/bash
-set -x
-
-# test to see if chaindata exists in bucket
-gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
-if [ $? -eq 0 ]
-then
-  #chaindata exists in bucket
-  mkdir -p /root/.ag-chain-cosmos/data
-  mkdir -p /root/.ag-chain-cosmos/config
-  mkdir -p /root/.ag-chain-cosmos/restore
-  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
-  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz /root/.ag-chain-cosmos/restore/chaindata.tgz
-  echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
-  systemctl stop ag-chain-cosmos.service
-  sleep 3
-  echo "untarring chaindata" | logger
-  tar zxvf /root/.ag-chain-cosmos/restore/chaindata.tgz --directory /root/.ag-chain-cosmos
-  echo "removing chaindata tarball" | logger
-  rm -rf /root/.ag-chain-cosmos/restore/chaindata.tgz
-  sleep 3
-  # echo re-enable this after ensuring we can cleanly restarted daemon with restored data
-  #echo "starting ag-chain-cosmos.service" | logger
-  #systemctl start ag-chain-cosmos.service
-  else
-    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting warp restore" | logger
-  fi
-EOF
-chmod u+x /root/restore.sh
+#echo "Creating chaindata restore script" | logger
+#cat <<'EOF' > /root/restore.sh
+##!/bin/bash
+#set -x
+#
+## test to see if chaindata exists in bucket
+#gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
+#if [ $? -eq 0 ]
+#then
+#  #chaindata exists in bucket
+#  mkdir -p /root/.ag-chain-cosmos/data
+#  mkdir -p /root/.ag-chain-cosmos/config
+#  mkdir -p /root/.ag-chain-cosmos/restore
+#  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
+#  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz /root/.ag-chain-cosmos/restore/chaindata.tgz
+#  echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
+#  systemctl stop ag-chain-cosmos.service
+#  sleep 3
+#  echo "untarring chaindata" | logger
+#  tar zxvf /root/.ag-chain-cosmos/restore/chaindata.tgz --directory /root/.ag-chain-cosmos
+#  echo "removing chaindata tarball" | logger
+#  rm -rf /root/.ag-chain-cosmos/restore/chaindata.tgz
+#  sleep 3
+#  # echo re-enable this after ensuring we can cleanly restarted daemon with restored data
+#  #echo "starting ag-chain-cosmos.service" | logger
+#  #systemctl start ag-chain-cosmos.service
+#  else
+#    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting warp restore" | logger
+#  fi
+#EOF
+#chmod u+x /root/restore.sh
 
 # ---- Create rsync restore script
-echo "Creating rsync chaindata restore script" | logger
-cat <<'EOF' > /root/restore_rsync.sh
-#!/bin/bash
-set -x
-
-# test to see if chaindata exists in the rsync chaindata bucket
-gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
-if [ $? -eq 0 ]
-then
-  #chaindata exists in bucket
-  echo "stopping ag-chain-cosmos.service" | logger
-  systemctl stop ag-chain-cosmos.service
-  #echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
-  #mkdir -p /root/.ag-chain-cosmos/config
-  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.ag-chain-cosmos/config
-  mkdir -p /root/.ag-chain-cosmos/data
-  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data /root/.ag-chain-cosmos/data
-  echo "restarting ag-chain-cosmos.service" | logger
-  sleep 3
-  systemctl start ag-chain-cosmos.service
-  else
-    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
-  fi
-EOF
-chmod u+x /root/restore_rsync.sh
+#echo "Creating rsync chaindata restore script" | logger
+#cat <<'EOF' > /root/restore_rsync.sh
+##!/bin/bash
+#set -x
+#
+## test to see if chaindata exists in the rsync chaindata bucket
+#gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
+#if [ $? -eq 0 ]
+#then
+#  #chaindata exists in bucket
+#  echo "stopping ag-chain-cosmos.service" | logger
+#  systemctl stop ag-chain-cosmos.service
+#  #echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
+#  #mkdir -p /root/.ag-chain-cosmos/config
+#  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.ag-chain-cosmos/config
+#  mkdir -p /root/.ag-chain-cosmos/data
+#  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data /root/.ag-chain-cosmos/data
+#  echo "restarting ag-chain-cosmos.service" | logger
+#  sleep 3
+#  systemctl start ag-chain-cosmos.service
+#  else
+#    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
+#  fi
+#EOF
+#chmod u+x /root/restore_rsync.sh
 
 # ---- Create restore validator keys from rsync script
-echo "Creating rsync validator keys restore script" | logger
-cat <<'EOF' > /root/restore_validator_keys_rsync.sh
-#!/bin/bash
-set -x
-
-# test to see if chaindata exists in the rsync chaindata bucket
-gsutil -q stat gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json
-if [ $? -eq 0 ]
-then
-  #validator key exists in bucket
-  echo "stopping ag-chain-cosmos.service" | logger
-  systemctl stop ag-chain-cosmos.service
-  echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
-  mkdir -p /root/.ag-chain-cosmos/config
-  gsutil gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.ag-chain-cosmos/config/
-  gsutil gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.ag-chain-cosmos/config/
-  echo "to interactively restoring private key from mnemonic, "
-  echo "run ag-cosmos-helper keys add $KEY_NAME --recover"
-  
-  echo "do not forget to restart ag-chain-cosmos after importing keys, with 'systemctl start ag-chain-cosmos'"
-  #echo "restarting ag-chain-cosmos.service" | logger
-  #sleep 3
-  #systemctl start ag-chain-cosmos.service
-  else
-    echo "No validator keys found in bucket gs://${gcloud_project}-chaindata-rsync, aborting restore" | logger
-  fi
-EOF
-chmod u+x /root/restore_validator_keys_rsync.sh
-
+#echo "Creating rsync validator keys restore script" | logger
+#cat <<'EOF' > /root/restore_validator_keys_rsync.sh
+##!/bin/bash
+#set -x
+#
+## test to see if chaindata exists in the rsync chaindata bucket
+#gsutil -q stat gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json
+#if [ $? -eq 0 ]
+#then
+#  #validator key exists in bucket
+#  echo "stopping ag-chain-cosmos.service" | logger
+#  systemctl stop ag-chain-cosmos.service
+#  echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
+#  mkdir -p /root/.ag-chain-cosmos/config
+#  gsutil gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.ag-chain-cosmos/config/
+#  gsutil gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.ag-chain-cosmos/config/
+#  echo "to interactively restoring private key from mnemonic, "
+#  echo "run ag-cosmos-helper keys add $KEY_NAME --recover"
+#  
+#  echo "do not forget to restart ag-chain-cosmos after importing keys, with 'systemctl start ag-chain-cosmos'"
+#  #echo "restarting ag-chain-cosmos.service" | logger
+#  #sleep 3
+#  #systemctl start ag-chain-cosmos.service
+#  else
+#    echo "No validator keys found in bucket gs://${gcloud_project}-chaindata-rsync, aborting restore" | logger
+#  fi
+#EOF
+#chmod u+x /root/restore_validator_keys_rsync.sh
 
 # ---- Useful aliases ----
 echo "Configuring aliases" | logger
 echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
 echo "alias ll='ls -laF'" >> /root/.bashrc
-echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /root/.bashrc
-echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /etc/skel/.bashrc
 
-# ---- Install Stackdriver Agent
-echo "Installing Stackdriver agent" | logger
-curl -sSO https://dl.google.com/cloudagents/add-monitoring-agent-repo.sh
-bash add-monitoring-agent-repo.sh
-apt update -y
-apt install -y stackdriver-agent
-systemctl restart stackdriver-agent
-
-# ---- Install Fluent Log Collector
-echo "Installing google fluent log collector agent" | logger
-curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
-bash add-logging-agent-repo.sh
-apt install -y google-fluentd
-apt install -y google-fluentd-catch-all-config-structured
-systemctl restart google-fluentd
+# native terraform for install ops-agent isn't working, so workaround
+curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+bash add-google-cloud-ops-agent-repo.sh --also-install
 
 # ---- Setup swap
 echo "Setting up swapfile" | logger
@@ -298,6 +281,8 @@ chmod 600 /swapfile
 mkswap /swapfile
 swapon /swapfile
 swapon -s
+
+
 
 # ---- Set Up Persistent Disk ----
 
@@ -328,20 +313,19 @@ DISK_UUID=$(blkid $DISK_PATH | cut -d '"' -f2)
 echo "UUID=$DISK_UUID     $DATA_DIR   auto    discard,defaults    0    0" >> /etc/fstab
 mount $DATA_DIR
 
+# add agoric user
+echo "Adding agoric user" | logger
+useradd -m agoric -s /bin/bash
+
+# set perms on datadir for agoric user
+chown -R agoric:agoric /home/agoric
+
+# set perms on datadir for agoric user
+chown -R agoric:agoric $DATA_DIR
+
 # Remove existing chain data
 [[ ${reset_chain_data} == "true" ]] && rm -rf $DATA_DIR/data
 
-# ---- Install Docker ----
-
-#echo "Installing Docker..." | logger
-#apt update -y && apt upgrade -y
-#apt install -y apt-transport-https ca-certificates curl software-properties-common gnupg2 htop screen
-#curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
-#add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
-#apt update -y && apt upgrade -y
-#apt install -y docker-ce
-#apt upgrade -y
-#systemctl start docker
 
 # ---- Config /etc/screenrc ----
 echo "Configuring /etc/screenrc" | logger
@@ -358,21 +342,6 @@ bindkey -k k9 select 9  #  F9 = screen 9
 bindkey -k F1 prev      # F11 = prev
 bindkey -k F2 next      # F12 = next
 EOF
-
-#echo "Configuring Docker..." | logger
-#cat <<'EOF' > '/etc/docker/daemon.json'
-#{
-#  "log-driver": "json-file",
-#  "log-opts": {
-#    "max-size": "10m",
-#    "max-file": "3",
-#    "mode": "non-blocking"
-#  }
-#}
-#EOF
-
-#echo "Restarting docker" | logger
-#systemctl restart docker
 
 # warp restore scripts disabled until they're tested w/ the agoric chaindata format
 # --- run restore script
@@ -403,20 +372,21 @@ OTEL_EXPORTER_PROMETHEUS_PORT=9464
 apt update && apt upgrade -y
 
 # Download the nodesource PPA for Node.js
-echo "Installing nodejs and yarn" | logger
-curl https://deb.nodesource.com/setup_12.x |  bash
+#echo "Installing nodejs and yarn" | logger
+#curl https://deb.nodesource.com/setup_12.x |  bash
 
 # Download the Yarn repository configuration
 # See instructions on https://legacy.yarnpkg.com/en/docs/install/
-curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
-echo "deb https://dl.yarnpkg.com/debian/ stable main" |  tee /etc/apt/sources.list.d/yarn.list
+#curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+#echo "deb https://dl.yarnpkg.com/debian/ stable main" |  tee /etc/apt/sources.list.d/yarn.list
 
 # Update Ubuntu to pickup the yarn repo
-apt update
+#apt update
 
 # Install Node.js, Yarn, and build tools
 # Install jq for formatting of JSON data
-apt install nodejs=12.* yarn build-essential jq git nftables -y
+#apt install nodejs=12.* yarn build-essential jq git nftables -y
+apt install build-essential jq git nftables -y
 
 # First remove any existing old Go installation
  rm -rf /usr/local/go
@@ -426,48 +396,88 @@ echo "installing golang" | logger
 curl https://dl.google.com/go/go1.15.7.linux-amd64.tar.gz |  tar -C/usr/local -zxvf -
 
 # Update environment variables to include go
-cat <<'EOF' >> $HOME/.profile
+cat <<'EOF' >> /home/agoric/.profile
 export GOROOT=/usr/local/go
 export GOPATH=$HOME/go
 export GO111MODULE=on
 export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
-. $HOME/.profile
+chown agoric:agoric /home/agoric/.profile
 
-echo "checking out Agoric release from github" | logger
+# Create agoric install script
+cat << EOF >> /home/agoric/install_agoric.sh
+#!/bin/bash
+set -x
+
+. /home/agoric/.profile
 cd $DATA_DIR
-git clone ${agoric_node_release_repository} -b ${agoric_node_release_tag}
-cd agoric-sdk
+git clone ${agoric_node_release_repository} -b ${agoric_node_release_tag} ag0
+cd ag0
+make build
+make install
+EOF
 
-echo "Install and build Agoric Javascript packages" | logger
-yarn install
-yarn build
 
-echo "Install and build Agoric Cosmos SDK support" | logger
-cd packages/cosmic-swingset && make
+chmod u+x /home/agoric/install_agoric.sh
+chown agoric:agoric /home/agoric/install_agoric.sh
+echo "Checking out ag0 from github and building it" | logger
+sudo -u agoric /home/agoric/install_agoric.sh
 
-# test to see agoric SDK is correctly installed
-echo "testing to see agoric SDK is correctly installed" | logger
-ag-chain-cosmos version --long
+# Create agoric configurator script
+cat << EOF >> /home/agoric/configure_agoric.sh
+#!/bin/bash
+set -x
 
+. /home/agoric/.profile
 cd $DATA_DIR
 # First, get the network config for the current network.
 curl ${network_uri}/network-config > chain.json
 # Set chain name to the correct value
-chainName=`jq -r .chainName < chain.json`
+chainName=\`jq -r .chainName < chain.json\`
+chainName=\$(jq -r .chainName < chain.json)
 # Confirm value: should be something like agoricdev-N.
-echo $chainName
-
-# Replace <your_moniker> with the public name of your node.
-# NOTE: The `--home` flag (or `AG_CHAIN_COSMOS_HOME` environment variable) determines where the chain state is stored.
-# By default, this is `$HOME/.ag-chain-cosmos`.
-#ag-chain-cosmos init --chain-id $chainName $MONIKER
-ag-chain-cosmos init --chain-id $chainName ${node_name}
-
+echo \$chainName
+ag0 init --chain-id \$chainName ${validator_name}
 # Download the genesis file
 curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
 # Reset the state of your validator.
-ag-chain-cosmos unsafe-reset-all
+ag0 unsafe-reset-all
+# Set peers variable to the correct value
+peers=\$(jq '.peers | join(",")' < chain.json)
+
+# Set seeds variable to the correct value.
+seeds=\$(jq '.seeds | join(",")' < chain.json)
+
+# Confirm values, each should be something like "077c58e4b207d02bbbb1b68d6e7e1df08ce18a8a@178.62.245.23:26656,..."
+echo \$peers
+echo \$seeds
+# Fix `Error: failed to parse log level`
+sed -i.bak 's/^log_level/# log_level/' $DATA_DIR/config/config.toml
+# Replace the seeds and persistent_peers values
+sed -i.bak -e "s/^seeds *=.*/seeds = \$seeds/; s/^persistent_peers *=.*/persistent_peers = \$peers/" $DATA_DIR/config/config.toml
+# set publicly reachable p2p addr in config.toml
+sed -i.bak 's/external_address = ""/#external_address = ""/' $DATA_DIR/config/config.toml
+echo "# external address to advertise to p2p network \n" >> $DATA_DIR/config/config.toml
+echo "external_address = \"tcp://${fullnode_external_address}:26656\"" >> $DATA_DIR/config/config.toml
+EOF
+
+chmod u+x /home/agoric/configure_agoric.sh
+chown agoric:agoric /home/agoric/configure_agoric.sh
+echo "Configuring agoric" | logger
+sudo -u agoric /home/agoric/configure_agoric.sh
+
+# agoric SDK not yet enabled, so skipping
+#echo "Install and build Agoric Javascript packages" | logger
+#yarn install
+#yarn build
+
+#echo "Install and build Agoric Cosmos SDK support" | logger
+#cd packages/cosmic-swingset && make
+
+# test to see agoric SDK is correctly installed
+#echo "testing to see agoric SDK is correctly installed" | logger
+#ag-chain-cosmos version --long
+#agd version --long
 
 #backup state file
 #cp $DATA_DIR/data/priv_validator_state.json /root/
@@ -476,40 +486,18 @@ ag-chain-cosmos unsafe-reset-all
 # restore state file
 #cp -vf /root/priv_validator_state.json $DATA_DIR/data/priv_validator_state.json
 
-# Set peers variable to the correct value
-peers=$(jq '.peers | join(",")' < chain.json)
-# Set seeds variable to the correct value.
-seeds=$(jq '.seeds | join(",")' < chain.json)
-# Confirm values, each should be something like "077c58e4b207d02bbbb1b68d6e7e1df08ce18a8a@178.62.245.23:26656,..."
-echo $peers
-echo $seeds
-# Fix `Error: failed to parse log level`
-#sed -i.bak 's/^log_level/# log_level/' $HOME/.ag-chain-cosmos/config/config.toml
-sed -i.bak 's/^log_level/# log_level/' $DATA_DIR/config/config.toml
-# Replace the seeds and persistent_peers values
-#sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $HOME/.ag-chain-cosmos/config/config.toml
-sed -i.bak -e "s/^seeds *=.*/seeds = $seeds/; s/^persistent_peers *=.*/persistent_peers = $peers/" $DATA_DIR/config/config.toml
 
-# set publicly reachable p2p addr in config.toml
-sed -i.bak 's/external_address = ""/#external_address = ""/' $DATA_DIR/config/config.toml
-echo "# external address to advertise to p2p network" >> $DATA_DIR/config/config.toml
-echo "external_address = \"tcp://${fullnode_external_address}:26656\"" >> $DATA_DIR/config/config.toml
-
-# bind RPC listener to 0.0.0.0
-#laddr = "laddr = "tcp://127.0.0.1:26657""
-sed -i.bak 's/127.0.0.1:26657/0.0.0.0:26657/' $DATA_DIR/config/config.toml
-
-
-echo "Setting up ag-chain-cosmos service in systemd" | logger
-tee <<EOF >/dev/null /etc/systemd/system/ag-chain-cosmos.service
+echo "Setting up ag0 service in systemd" | logger
+tee <<EOF >/dev/null /etc/systemd/system/ag0.service
 [Unit]
 Description=Agoric Cosmos daemon
 After=network-online.target
 
 [Service]
-User=root
-Environment="OTEL_EXPORTER_PROMETHEUS_PORT=9464"
-ExecStart=/root/go/bin/ag-chain-cosmos start --log_level=info
+User=agoric
+#Environment="OTEL_EXPORTER_PROMETHEUS_PORT=9464"
+#Environment="SLOGFILE=$DATA_DIR/${validator_name}-${agoric_node_release_tag}-chain.slog"
+ExecStart=/home/agoric/go/bin/ag0 start --log_level=info
 Restart=on-failure
 RestartSec=3
 LimitNOFILE=4096
@@ -535,8 +523,7 @@ table inet filter {
                 ct state established,related accept
 
                 # activate the following line to accept common local services
-                # note this exposes the RPC to the Internet
-                tcp dport { 22, 26656, 26657 } ct state new accept
+                tcp dport { 22, 26656 } ct state new accept
 
                 # permit prometheus access to telemetry ports but ONLY from agoric
                 ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 9100, 26660} ct state new accept
@@ -550,29 +537,28 @@ table inet filter {
 }
 EOF
 
-# disabling lost based firewall for testing
-#echo "Enabling firewall" | logger
-#systemctl enable nftables.service
-#systemctl start nftables.service
+echo "Enabling firewall" | logger
+systemctl enable nftables.service
+systemctl start nftables.service
 
-echo "configuring telemetry services" | logger
-echo "telemetry: swingset enabled at on tcp/9464 and tendermint enabled on tcp/26660"
-sed -i "s/prometheus = false/prometheus = true/" $DATA_DIR/config/config.toml
+#echo "configuring telemetry services" | logger
+#echo "telemetry: swingset enabled at on tcp/9464 and tendermint enabled on tcp/26660"
+#sed -i "s/prometheus = false/prometheus = true/" $DATA_DIR/config/config.toml
 
 # start via systemd
-echo "Setting ag-chain-cosmos to run from systemd" | logger
-echo "systemctl status ag-chain-cosmos"
- systemctl enable ag-chain-cosmos
+echo "Setting ag0 to run from systemd" | logger
+echo "systemctl status ag0" | logger
+ systemctl enable ag0
  systemctl daemon-reload
- systemctl start ag-chain-cosmos
+ systemctl start ag0
 
 # install prometheus node exporter
-mkdir -p $HOME/prometheus
-cd $HOME/prometheus
-wget ${prometheus_exporter_tarball}
-tar xvfz node_exporter-*.*-amd64.tar.gz
-cd node_exporter-*.*-amd64
-./node_exporter &    # fixme do this with systemd, and run as not root!
+#mkdir -p $HOME/prometheus
+#cd $HOME/prometheus
+#wget ${prometheus_exporter_tarball}
+#tar xvfz node_exporter-*.*-amd64.tar.gz
+#cd node_exporter-*.*-amd64
+#./node_exporter &    # fixme do this with systemd, and run as not root!
 
 #--- remove compilers
 #echo "Removing compilers and unnecessary packages" | logger
@@ -581,15 +567,16 @@ cd node_exporter-*.*-amd64
 
 # reinstall fluentd which is getting removed by something
 # ---- Install Fluent Log Collector
-echo "Installing google fluent log collector agent" | logger
+#echo "Installing google fluent log collector agent" | logger
 #curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
 #bash add-logging-agent-repo.sh
-apt install -y google-fluentd
-apt install -y google-fluentd-catch-all-config-structured
-systemctl restart google-fluentd
+#apt install -y google-fluentd
+#apt install -y google-fluentd-catch-all-config-structured
+#systemctl restart google-fluentd
 
-echo "install completed, chain syncing" | logger
-echo "for sync status: ag-cosmos-helper status 2>&1 | jq .SyncInfo"
-echo "or check stackdriver logs for this instance"
+#echo "install completed, chain syncing" | logger
+#echo "for sync status: ag0 status 2>&1 | jq .SyncInfo"
+#echo "or check stackdriver logs for this instance"
+
 
 

@@ -16,8 +16,8 @@ variable replicas {
   type        = map(number)
 
   default = {
-    validator           = 1 
-    backup_node         = 0 
+    validator           = 0 
+    backup_node         = 1 
   }
 }
 
@@ -42,7 +42,7 @@ variable agoric_env {
   description = "The Agoric network to connect with"
   type        = string
 
-  default = "mainnet"
+  default = "mainnet0"
 }
 
 variable network_uri {
@@ -70,13 +70,13 @@ variable agoric_node_release {
 variable validator_name {
   type        = string
   description = "The validator Name"
-  default     = "YourValidator"
+  default     = "YourValidatorMoniker"
 }
 
-variable node_name {
+variable backup_node_name {
   type        = string
-  description = "The node Name /moniker"
-  default     = "YourMoniker"
+  description = "The backup node Name / moniker"
+  default     = "YourBackupNodeMoniker"
 }
 
 variable reset_chain_data {

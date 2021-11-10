@@ -66,7 +66,7 @@ variable validator_name {
   description = "The validator Name"
 }
 
-variable node_name {
+variable backup_node_name {
   type        = string
   description = "The full node Name/moniker"
 }
