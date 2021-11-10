@@ -26,7 +26,7 @@ resource "google_compute_instance" "validator" {
   name         = "${local.name_prefix}-${count.index}"
   machine_type = var.instance_type
 
-  deletion_protection = false
+  deletion_protection = true
 
   count = var.validator_count
 
@@ -38,7 +38,7 @@ resource "google_compute_instance" "validator" {
   }
 
 
-  allow_stopping_for_update = true
+  allow_stopping_for_update = false
 
   boot_disk {
     initialize_params {
