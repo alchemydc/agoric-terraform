@@ -107,134 +107,6 @@ EOF
 echo "Restarting rsyslogd" | logger
 systemctl restart rsyslog
 
-# ---- Create backup script
-echo "Creating chaindata backup script" | logger
-cat <<'EOF' > /home/agoric/backup_chaindata.sh
-#!/bin/bash
-# This script stops the agoric cosmos ag0 p2p/consensus daemon, tars up the chaindata (with gzip compression), and copies it to GCS.
-# The 'chaindata' GCS bucket has versioning enabled, so if a corrupted tarball is uploaded, an older version can be selected for restore.
-# This takes quit some time, and takes quite a bit of local disk.
-# The rsync variant (below) is more efficient, but tarballs are more portable.
-set -x
-
-WORKING_DIR='/home/agoric/.agoric'
-
-echo "Starting chaindata backup" | logger
-sudo systemctl stop ag0.service
-sleep 5
-
-mkdir -p $WORKING_DIR/backup
-
-echo "Tarring up chaindata to $WORKING_DIR/backup/chaindata.tgz" | logger
-# backup only the data for now, not the config
-#tar -I "pigz --fast" -C $WORKING_DIR -cvf $WORKING_DIR/backup/chaindata.tgz data config
-tar -I "pigz --fast" -C $WORKING_DIR -cvf $WORKING_DIR/backup/chaindata.tgz data
-
-echo "Copying tarball to GCS bucket gs://${gcloud_project}-chaindata" | logger
-#gsutil cp /root/.ag-chain-cosmos/backup/chaindata.tgz gs://${gcloud_project}-chaindata
-gsutil cp $WORKING_DIR/backup/chaindata.tgz gs://${gcloud_project}-chaindata
-
-echo "Removing tarball from local fs" | logger
-rm -f $WORKING_DIR/backup/chaindata.tgz
-echo "Chaindata backup completed" | logger
-sleep 3
-systemctl start ag0.service
-EOF
-chmod u+x /home/agoric/backup_chaindata.sh
-
-# ---- Create rsync backup script
-#echo "Creating rsync chaindata backup script" | logger
-#cat <<'EOF' > /root/backup_rsync.sh
-##!/bin/bash
-## This script stops agoric p2p/consensus daemon, and uses rsync to copy chaindata to GCS.
-#set -x
-#
-#echo "Starting rsync chaindata backup" | logger
-#systemctl stop ag-chain-cosmos.service
-#sleep 5
-## will backup config via rsync, since it's easy to selectively restore it or not
-#gsutil -m rsync -d -r /root/.ag-chain-cosmos/config  gs://${gcloud_project}-chaindata-rsync/config
-#gsutil -m rsync -d -r /root/.ag-chain-cosmos/data  gs://${gcloud_project}-chaindata-rsync/data
-#echo "rsync chaindata backup completed" | logger
-#sleep 3
-#systemctl start ag-chain-cosmos.service
-#EOF
-#chmod u+x /root/backup_rsync.sh
-
-# ---- Add backups to cron
-# note that this will make the backup_node geth unavailable during the backup, which is why
-# we run this on a dedicated backup node now instead of the attestation service txnode
-#cat <<'EOF' > /root/backup.crontab
-## m h  dom mon dow   command
-## backup full tarball once a day at 00:57
-#57 0 * * * /root/backup.sh > /dev/null 2>&1
-## backup via rsync run every six hours at 00:17 past the hour
-#17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
-#EOF
-
-# do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
-#/usr/bin/crontab /root/backup.crontab
-
-# ---- Create restore script
-#echo "Creating chaindata restore script" | logger
-#cat <<'EOF' > /root/restore.sh
-##!/bin/bash
-#set -x
-#
-## test to see if chaindata exists in bucket
-#gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
-#if [ $? -eq 0 ]
-#then
-#  #chaindata exists in bucket
-#  mkdir -p /root/.ag-chain-cosmos/data
-#  mkdir -p /root/.ag-chain-cosmos/config
-#  mkdir -p /root/.ag-chain-cosmos/restore
-#  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
-#  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz /root/.ag-chain-cosmos/restore/chaindata.tgz
-#  echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
-#  systemctl stop ag-chain-cosmos.service
-#  sleep 3
-#  echo "untarring chaindata" | logger
-#  tar zxvf /root/.ag-chain-cosmos/restore/chaindata.tgz --directory /root/.ag-chain-cosmos
-#  echo "removing chaindata tarball" | logger
-#  rm -rf /root/.ag-chain-cosmos/restore/chaindata.tgz
-#  sleep 3
-#  # echo re-enable this after ensuring we can cleanly restarted daemon with restored data
-#  #echo "starting ag-chain-cosmos.service" | logger
-#  #systemctl start ag-chain-cosmos.service
-#  else
-#    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting warp restore" | logger
-#  fi
-#EOF
-#chmod u+x /root/restore.sh
-
-# ---- Create rsync restore script
-#echo "Creating rsync chaindata restore script" | logger
-#cat <<'EOF' > /root/restore_rsync.sh
-##!/bin/bash
-#set -x
-#
-## test to see if chaindata exists in the rsync chaindata bucket
-#gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
-#if [ $? -eq 0 ]
-#then
-#  #chaindata exists in bucket
-#  echo "stopping ag-chain-cosmos.service" | logger
-#  systemctl stop ag-chain-cosmos.service
-#  #echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
-#  #mkdir -p /root/.ag-chain-cosmos/config
-#  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.ag-chain-cosmos/config
-#  mkdir -p /root/.ag-chain-cosmos/data
-#  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data /root/.ag-chain-cosmos/data
-#  echo "restarting ag-chain-cosmos.service" | logger
-#  sleep 3
-#  systemctl start ag-chain-cosmos.service
-#  else
-#    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
-#  fi
-#EOF
-#chmod u+x /root/restore_rsync.sh
-
 # ---- Create restore validator keys from rsync script
 #echo "Creating rsync validator keys restore script" | logger
 #cat <<'EOF' > /root/restore_validator_keys_rsync.sh
@@ -264,11 +136,6 @@ chmod u+x /home/agoric/backup_chaindata.sh
 #  fi
 #EOF
 #chmod u+x /root/restore_validator_keys_rsync.sh
-
-# ---- Useful aliases ----
-echo "Configuring aliases" | logger
-echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
-echo "alias ll='ls -laF'" >> /root/.bashrc
 
 # native terraform for install ops-agent isn't working, so workaround
 curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
@@ -326,6 +193,10 @@ chown -R agoric:agoric $DATA_DIR
 # Remove existing chain data
 [[ ${reset_chain_data} == "true" ]] && rm -rf $DATA_DIR/data
 
+# ---- Useful aliases ----
+echo "Configuring aliases" | logger
+echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
+echo "alias ll='ls -laF'" >> /root/.bashrc
 
 # ---- Config /etc/screenrc ----
 echo "Configuring /etc/screenrc" | logger
@@ -578,5 +449,148 @@ echo "systemctl status ag0" | logger
 #echo "for sync status: ag0 status 2>&1 | jq .SyncInfo"
 #echo "or check stackdriver logs for this instance"
 
+# ---- Create backup script
+echo "Creating chaindata backup script" | logger
+cat <<'EOF' > /home/agoric/backup_chaindata.sh
+#!/bin/bash
+# This script stops the agoric cosmos ag0 p2p/consensus daemon, tars up the chaindata (with gzip compression), and copies it to GCS.
+# The 'chaindata' GCS bucket has versioning enabled, so if a corrupted tarball is uploaded, an older version can be selected for restore.
+# This takes quit some time, and takes quite a bit of local disk.
+# The rsync variant (below) is more efficient, but tarballs are more portable.
+set -x
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+
+echo "Starting chaindata backup" | logger
+sudo $SYSTEMCTL stop ag0.service
+sleep 5
+
+mkdir -p $WORKING_DIR/backup
+
+echo "Tarring up chaindata to $WORKING_DIR/backup/chaindata.tgz" | logger
+# backup only the data for now, not the config
+#tar -I "pigz --fast" -C $WORKING_DIR -cvf $WORKING_DIR/backup/chaindata.tgz data config
+tar -I "pigz --fast" -C $WORKING_DIR -cvf $WORKING_DIR/backup/chaindata.tgz data
+
+echo "Copying tarball to GCS bucket gs://${gcloud_project}-chaindata" | logger
+gsutil cp $WORKING_DIR/backup/chaindata.tgz gs://${gcloud_project}-chaindata
+
+echo "Removing tarball from local fs" | logger
+rm -f $WORKING_DIR/backup/chaindata.tgz
+echo "Chaindata backup completed" | logger
+sleep 3
+sudo $SYSTEMCTL start ag0.service
+EOF
+chown agoric:agoric /home/agoric/backup_chaindata.sh
+chmod u+x /home/agoric/backup_chaindata.sh
+
+# ---- Create rsync backup script
+echo "Creating rsync chaindata backup script" | logger
+cat <<'EOF' > /home/agoric/backup_rsync.sh
+#!/bin/bash
+# This script stops agoric p2p/consensus daemon, and uses rsync to copy chaindata to GCS.
+set -x
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+
+echo "Starting rsync chaindata backup" | logger
+sudo $SYSTEMCTL stop ag0.service
+sleep 5
+echo "Backing up chaindata via rsync" | logger
+gsutil -m rsync -d -r $WORKING_DIR/data  gs://${gcloud_project}-chaindata-rsync/data
+echo "rsync chaindata backup completed" | logger
+sleep 3
+sudo $SYSTEMCTL start ag0.service
+EOF
+chown agoric:agoric /home/agoric/backup_rsync.sh
+chmod u+x /home/agoric/backup_rsync.sh
+
+# ---- Add backups to cron
+# note that this will make the backup_node geth unavailable during the backup, which is why
+# we run this on a dedicated backup node now instead of the attestation service txnode
+#cat <<'EOF' > /root/backup.crontab
+## m h  dom mon dow   command
+## backup full tarball once a day at 00:57
+#57 0 * * * /root/backup.sh > /dev/null 2>&1
+## backup via rsync run every six hours at 00:17 past the hour
+#17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
+#EOF
+
+# do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
+#/usr/bin/crontab /root/backup.crontab
+
+# ---- Create restore script
+echo "Creating chaindata restore script" | logger
+cat <<'EOF' > /home/agoric/restore_chaindata.sh
+#!/bin/bash
+set -x
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+
+echo "Starting chaindata restore from GCS tarball" | logger
+
+## test to see if chaindata exists in bucket
+echo "Checking for presence of chaindata tarball in GCS" | logger
+gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
+if [ $? -eq 0 ]
+then
+  #chaindata exists in bucket
+  echo "Found chaindata tarball in GCS" | logger
+  mkdir -p $WORKING_DIR/restore
+  mkdir -p $WORKING_DIR/data  
+  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
+  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
+  echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
+  sudo $SYSTEMCTL stop ag0.service
+  sleep 5
+  echo "untarring chaindata" | logger
+  tar zxvf $WORKING_DIR/restore/chaindata.tgz --directory $WORKING_DIR
+  echo "removing chaindata tarball" | logger
+  rm -rf $WORKING_DIR/restore/chaindata.tgz
+  sleep 5
+  echo "Starting ag0.service" | logger
+  sudo $SYSTEMCTL start ag0.service
+  else
+    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting restore" | logger
+  fi
+EOF
+chown agoric:agoric /home/agoric/restore_chaindata.sh
+chmod u+x /home/agoric/restore_chaindata.sh
+
+# ---- Create rsync restore script
+#echo "Creating rsync chaindata restore script" | logger
+#cat <<'EOF' > /root/restore_rsync.sh
+##!/bin/bash
+#set -x
+#
+## test to see if chaindata exists in the rsync chaindata bucket
+#gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
+#if [ $? -eq 0 ]
+#then
+#  #chaindata exists in bucket
+#  echo "stopping ag-chain-cosmos.service" | logger
+#  systemctl stop ag-chain-cosmos.service
+#  #echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
+#  #mkdir -p /root/.ag-chain-cosmos/config
+#  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.ag-chain-cosmos/config
+#  mkdir -p /root/.ag-chain-cosmos/data
+#  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data /root/.ag-chain-cosmos/data
+#  echo "restarting ag-chain-cosmos.service" | logger
+#  sleep 3
+#  systemctl start ag-chain-cosmos.service
+#  else
+#    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
+#  fi
+#EOF
+#chmod u+x /root/restore_rsync.sh
 
 
+# ---- Update sudoers to allow agoric user to control the ag0 service
+echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
+#zend ALL=(ALL) NOPASSWD: /home/zend/.acme.sh/acme.sh,/bin/systemctl restart 
+cat << 'EOF' >> /etc/sudoers
+agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service
+EOF

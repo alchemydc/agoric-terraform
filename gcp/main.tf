@@ -189,3 +189,37 @@ resource "google_storage_bucket_iam_binding" "chaindata_rsync_binding_read" {
     "serviceAccount:${var.GCP_DEFAULT_SERVICE_ACCOUNT}",
   ]
 }
+
+resource "google_storage_bucket" "validator_config_bucket" {
+  name = "${var.google["project"]}-validator-config"
+  location = "US"
+
+  lifecycle_rule {
+    condition {
+      num_newer_versions = 10  # keep 10 copies of validator config backups (use `gsutil ls -la $bucket` to see versioned objects)
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  versioning {
+      enabled = true
+    }
+}
+
+resource "google_storage_bucket_iam_binding" "validator_config_binding_write" {
+  bucket = "${var.google["project"]}-validator-config"
+  role = "roles/storage.objectCreator"
+  members = [
+    "serviceAccount:${var.GCP_DEFAULT_SERVICE_ACCOUNT}",
+  ]
+}
+
+resource "google_storage_bucket_iam_binding" "validator_config_binding_read" {
+  bucket = "${var.google["project"]}-validator-config"
+  role = "roles/storage.objectViewer"
+  members = [
+    "serviceAccount:${var.GCP_DEFAULT_SERVICE_ACCOUNT}",
+  ]
+}

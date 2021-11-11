@@ -259,19 +259,6 @@ systemctl restart rsyslog
 #EOF
 #chmod u+x /root/restore_validator_keys_rsync.sh
 
-
-
-
-
-
-
-# ---- Useful aliases ----
-echo "Configuring aliases" | logger
-echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
-echo "alias ll='ls -laF'" >> /root/.bashrc
-#echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /root/.bashrc
-#echo "alias ag-status='ag-cosmos-helper status 2>&1 | jq .'" >> /etc/skel/.bashrc
-
 # native terraform for install ops-agent isn't working, so workaround
 curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
 bash add-google-cloud-ops-agent-repo.sh --also-install
@@ -325,6 +312,11 @@ chown -R agoric:agoric $DATA_DIR
 
 # Remove existing chain data
 [[ ${reset_chain_data} == "true" ]] && rm -rf $DATA_DIR/data
+
+# ---- Useful aliases ----
+echo "Configuring aliases" | logger
+echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
+echo "alias ll='ls -laF'" >> /root/.bashrc
 
 # ---- Config /etc/screenrc ----
 echo "Configuring /etc/screenrc" | logger
@@ -577,3 +569,10 @@ echo "systemctl status ag0" | logger
 #echo "install completed, chain syncing" | logger
 #echo "for sync status: ag0 status 2>&1 | jq .SyncInfo"
 #echo "or check stackdriver logs for this instance"
+
+# ---- Update sudoers to allow agoric user to control the ag0 service
+echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
+#zend ALL=(ALL) NOPASSWD: /home/zend/.acme.sh/acme.sh,/bin/systemctl restart 
+cat << 'EOF' >> /etc/sudoers
+agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service
+EOF
