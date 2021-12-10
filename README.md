@@ -101,6 +101,10 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
 * Check your balance: `ag-cosmos-helper query bank balances `ag-cosmos-helper keys show -a $YOUR_KEY_NAME`
 * Send funds: `ag-chain-cosmos tx bank send --chain-id agorictest-9 --keyring-dir ~/.ag-cosmos-helper "$FROM_KEY_NAME" "$TO_KEY_NAME" 1uagstake
 * Edit your validator details after creation: `ag-cosmos-helper tx staking edit-validator --from "$KEY_NAME" --chain-id "agorictest-9" --moniker "YourValidatorMoniker" --website "https://yoursite.org" --details "your_details" --keyring-dir ~/.ag-cosmos-helper/
+* expand disk to accomodate ever growing blockchain:
+  * `gcloud compute disks resize $DISK_NAME --size 300G --region $REGION` 
+  * on node: `sudo resize2fs /dev/sdb` 
+
 
 ## Credit
 To [Javier Cortejoso](https://github.com/jcortejoso) at Clabs who created the [framework](https://github.com/alchemydc/celo-monorepo/tree/master/packages/terraform-modules-public) upon which this code is based.

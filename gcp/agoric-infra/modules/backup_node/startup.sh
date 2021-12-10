@@ -423,31 +423,9 @@ echo "systemctl status ag0" | logger
  systemctl daemon-reload
  systemctl start ag0
 
-# install prometheus node exporter
-#mkdir -p $HOME/prometheus
-#cd $HOME/prometheus
-#wget ${prometheus_exporter_tarball}
-#tar xvfz node_exporter-*.*-amd64.tar.gz
-#cd node_exporter-*.*-amd64
-#./node_exporter &    # fixme do this with systemd, and run as not root!
-
-#--- remove compilers
-#echo "Removing compilers and unnecessary packages" | logger
-# apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
-# apt -y autoremove
-
-# reinstall fluentd which is getting removed by something
-# ---- Install Fluent Log Collector
-#echo "Installing google fluent log collector agent" | logger
-#curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
-#bash add-logging-agent-repo.sh
-#apt install -y google-fluentd
-#apt install -y google-fluentd-catch-all-config-structured
-#systemctl restart google-fluentd
-
-#echo "install completed, chain syncing" | logger
-#echo "for sync status: ag0 status 2>&1 | jq .SyncInfo"
-#echo "or check stackdriver logs for this instance"
+echo "install completed, chain syncing" | logger
+echo "for sync status: ag0 status 2>&1 | jq .SyncInfo"
+echo "or check stackdriver logs for this instance"
 
 # ---- Create backup script
 echo "Creating chaindata backup script" | logger
@@ -510,16 +488,16 @@ chmod u+x /home/agoric/backup_rsync.sh
 # ---- Add backups to cron
 # note that this will make the backup_node geth unavailable during the backup, which is why
 # we run this on a dedicated backup node now instead of the attestation service txnode
-#cat <<'EOF' > /root/backup.crontab
-## m h  dom mon dow   command
-## backup full tarball once a day at 00:57
-#57 0 * * * /root/backup.sh > /dev/null 2>&1
-## backup via rsync run every six hours at 00:17 past the hour
-#17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
-#EOF
+cat <<'EOF' > /root/backup.crontab
+# m h  dom mon dow   command
+# backup full tarball once a day at 00:57
+57 0 * * * /root/backup.sh > /dev/null 2>&1
+# backup via rsync run every six hours at 00:17 past the hour
+17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
+EOF
 
 # do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
-#/usr/bin/crontab /root/backup.crontab
+/usr/bin/crontab /root/backup.crontab
 
 # ---- Create restore script
 echo "Creating chaindata restore script" | logger
@@ -551,7 +529,7 @@ then
   echo "removing chaindata tarball" | logger
   rm -rf $WORKING_DIR/restore/chaindata.tgz
   sleep 5
-  echo "Starting ag0.service" | logger
+  echo "Starting agoric p2p/consensus daemon" | logger
   sudo $SYSTEMCTL start ag0.service
   else
     echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting restore" | logger
@@ -561,31 +539,37 @@ chown agoric:agoric /home/agoric/restore_chaindata.sh
 chmod u+x /home/agoric/restore_chaindata.sh
 
 # ---- Create rsync restore script
-#echo "Creating rsync chaindata restore script" | logger
-#cat <<'EOF' > /root/restore_rsync.sh
-##!/bin/bash
-#set -x
-#
-## test to see if chaindata exists in the rsync chaindata bucket
-#gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
-#if [ $? -eq 0 ]
-#then
-#  #chaindata exists in bucket
-#  echo "stopping ag-chain-cosmos.service" | logger
-#  systemctl stop ag-chain-cosmos.service
-#  #echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
-#  #mkdir -p /root/.ag-chain-cosmos/config
-#  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.ag-chain-cosmos/config
-#  mkdir -p /root/.ag-chain-cosmos/data
-#  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data /root/.ag-chain-cosmos/data
-#  echo "restarting ag-chain-cosmos.service" | logger
-#  sleep 3
-#  systemctl start ag-chain-cosmos.service
-#  else
-#    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
-#  fi
-#EOF
-#chmod u+x /root/restore_rsync.sh
+echo "Creating rsync chaindata restore script" | logger
+cat <<'EOF' > /home/agoric/restore_rsync.sh
+#!/bin/bash
+set -x
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+
+# test to see if chaindata exists in the rsync chaindata bucket
+gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
+if [ $? -eq 0 ]
+then
+  #chaindata exists in bucket
+  echo "stopping agoric p2p/consensus daemon to rsync chaindata" | logger
+  sudo $SYSTEMCTL stop ag0.service
+  # do not download validator keys by default (yet)
+  #echo "downloading validator config via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
+  #mkdir -p $WORKING_DIR/config
+  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/config $WORKING_DIR/config
+  echo "downloading validator config via rsync from gs://${gcloud_project}-chaindata-rsync/data" | logger
+  mkdir -p $WORKING_DIR/data
+  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data $WORKING_DIR/data
+  echo "restarting ag-chain-cosmos.service" | logger
+  sleep 5
+  echo "Starting agoric p2p/consensus daemon" | logger
+  sudo $SYSTEMCTL start ag0.service
+  else
+    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
+  fi
+EOF
+chmod u+x /home/agoric/restore_rsync.sh
 
 
 # ---- Update sudoers to allow agoric user to control the ag0 service

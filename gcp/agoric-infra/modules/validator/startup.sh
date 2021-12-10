@@ -107,157 +107,113 @@ EOF
 echo "Restarting rsyslogd" | logger
 systemctl restart rsyslog
 
-## ---- Create backup script
-#echo "Creating chaindata backup script" | logger
-#cat <<'EOF' > /root/backup.sh
-##!/bin/bash
-## This script stops the agoric p2p/consensus daemon, tars up the chaindata (with gzip compression), and copies it to GCS.
-## The 'chaindata' GCS bucket has versioning enabled, so if a corrupted tarball is uploaded, an older version can be selected for restore.
-## This takes quit some time, and takes quite a bit of local disk.
-## The rsync variant (below) is more efficient, but tarballs are more portable.
-#set -x
-#
-#echo "Starting chaindata backup" | logger
-#systemctl stop agd.service
-#sleep 5
-## FIXME: not sure if anything else in .agd/data can be backed up to speed bootstrapping of new nodes
-#mkdir -p /root/.agd/backup
-## backup only the data for now, not the config
-##tar -C /root/.agd -zcvf /root/.agd/backup/chaindata.tgz data config
-#tar -C /root/.agd -zcvf /root/.agd/backup/chaindata.tgz data
-#gsutil cp /root/.agd/backup/chaindata.tgz gs://${gcloud_project}-chaindata
-#rm -f /root/.agd/backup/chaindata.tgz
-#echo "Chaindata backup completed" | logger
-#sleep 3
-#systemctl start agd.service
-#EOF
-#chmod u+x /root/backup.sh
-
-## ---- Create rsync backup script
-#echo "Creating rsync chaindata backup script" | logger
-#cat <<'EOF' > /root/backup_rsync.sh
-##!/bin/bash
-## This script stops agoric p2p/consensus daemon, and uses rsync to copy chaindata to GCS.
-#set -x
-#
-#echo "Starting rsync chaindata backup" | logger
-#systemctl stop agd.service
-#sleep 5
-## will backup config via rsync, since it's easy to selectively restore it or not
-#gsutil -m rsync -d -r /root/.agd/config  gs://${gcloud_project}-chaindata-rsync/config
-#gsutil -m rsync -d -r /root/.agd/data  gs://${gcloud_project}-chaindata-rsync/data
-#echo "rsync chaindata backup completed" | logger
-#sleep 3
-#systemctl start agd.service
-#EOF
-#chmod u+x /root/backup_rsync.sh
-
-# ---- Add backups to cron
-# note that this will make the backup_node geth unavailable during the backup, which is why
-# we run this on a dedicated backup node now instead of the attestation service txnode
-#cat <<'EOF' > /root/backup.crontab
-## m h  dom mon dow   command
-## backup full tarball once a day at 00:57
-#57 0 * * * /root/backup.sh > /dev/null 2>&1
-## backup via rsync run every six hours at 00:17 past the hour
-#17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
-#EOF
-
-# do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
-# so as not to interrupt consensus service on the validator node.
-#/usr/bin/crontab /root/backup.crontab
-
 # ---- Create restore script
-#echo "Creating chaindata restore script" | logger
-#cat <<'EOF' > /root/restore.sh
-##!/bin/bash
-#set -x
-#
+echo "Creating chaindata restore script" | logger
+cat <<'EOF' > /home/agoric/restore_chaindata.sh
+#!/bin/bash
+set -x
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+
+echo "Starting chaindata restore from GCS tarball" | logger
+
 ## test to see if chaindata exists in bucket
-#gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
-#if [ $? -eq 0 ]
-#then
-#  #chaindata exists in bucket
-#  mkdir -p /root/.agd/data
-#  mkdir -p /root/.agd/config
-#  mkdir -p /root/.agd/restore
-#  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
-#  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz /root/.agd/restore/chaindata.tgz
-#  echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
-#  systemctl stop agd.service
-#  sleep 3
-#  echo "untarring chaindata" | logger
-#  tar zxvf /root/.agd/restore/chaindata.tgz --directory /root/.agd
-#  echo "removing chaindata tarball" | logger
-#  rm -rf /root/.agd/restore/chaindata.tgz
-#  sleep 3
-#  # echo re-enable this after ensuring we can cleanly restarted daemon with restored data
-#  #echo "starting agd.service" | logger
-#  #systemctl start agd.service
-#  else
-#    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting warp restore" | logger
-#  fi
-#EOF
-#chmod u+x /root/restore.sh
+echo "Checking for presence of chaindata tarball in GCS" | logger
+gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
+if [ $? -eq 0 ]
+then
+  #chaindata exists in bucket
+  echo "Found chaindata tarball in GCS" | logger
+  mkdir -p $WORKING_DIR/restore
+  mkdir -p $WORKING_DIR/data  
+  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
+  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
+  echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
+  sudo $SYSTEMCTL stop ag0.service
+  sleep 5
+  echo "untarring chaindata" | logger
+  tar zxvf $WORKING_DIR/restore/chaindata.tgz --directory $WORKING_DIR
+  echo "removing chaindata tarball" | logger
+  rm -rf $WORKING_DIR/restore/chaindata.tgz
+  sleep 5
+  echo "Starting agoric p2p/consensus daemon" | logger
+  sudo $SYSTEMCTL start ag0.service
+  else
+    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting restore" | logger
+  fi
+EOF
+chown agoric:agoric /home/agoric/restore_chaindata.sh
+chmod u+x /home/agoric/restore_chaindata.sh
 
-## ---- Create rsync restore script
-#echo "Creating rsync chaindata restore script" | logger
-#cat <<'EOF' > /root/restore_rsync.sh
-##!/bin/bash
-#set -x
-#
-## test to see if chaindata exists in the rsync chaindata bucket
-#gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
-#if [ $? -eq 0 ]
-#then
-#  #chaindata exists in bucket
-#  echo "stopping agd.service" | logger
-#  systemctl stop agd.service
-#  #echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
-#  #mkdir -p /root/.agd/config
-#  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync /root/.agd/config
-#  mkdir -p /root/.agd/data
-#  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data /root/.agd/data
-#  echo "restarting agd.service" | logger
-#  sleep 3
-#  systemctl start agd.service
-#  else
-#    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
-#  fi
-#EOF
-#chmod u+x /root/restore_rsync.sh
+# ---- Create rsync restore script
+echo "Creating rsync chaindata restore script" | logger
+cat <<'EOF' > /home/agoric/restore_rsync.sh
+#!/bin/bash
+set -x
 
-## ---- Create restore validator keys from rsync script
-#echo "Creating rsync validator keys restore script" | logger
-#cat <<'EOF' > /root/restore_validator_keys_rsync.sh
-##!/bin/bash
-#set -x
-#
-## test to see if chaindata exists in the rsync chaindata bucket
-#gsutil -q stat gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json
-#if [ $? -eq 0 ]
-#then
-#  #validator key exists in bucket
-#  echo "stopping agd.service" | logger
-#  systemctl stop agd.service
-#  echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
-#  mkdir -p /root/.agd/config
-#  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.agd/config/
-#  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.agd/config/
-#  echo "to interactively restoring private key from mnemonic, "
-#  echo "ag-cosmos-helper keys add $KEY_NAME --recover"
-#  echo "and then"
-#  echo "agd init --chain-id ${agoric_node_release_tag} ${validator_name}"
-#  
-#  echo "do not forget to restart agd after importing keys, with 'systemctl start agd'"
-#  #echo "restarting agd.service" | logger
-#  #sleep 3
-#  #systemctl start agd.service
-#  else
-#    echo "No validator keys found in bucket gs://${gcloud_project}-chaindata-rsync, aborting restore" | logger
-#  fi
-#EOF
-#chmod u+x /root/restore_validator_keys_rsync.sh
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+
+# test to see if chaindata exists in the rsync chaindata bucket
+gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
+if [ $? -eq 0 ]
+then
+  #chaindata exists in bucket
+  echo "stopping agoric p2p/consensus daemon to rsync chaindata" | logger
+  sudo $SYSTEMCTL stop ag0.service
+  # do not download validator keys by default (yet)
+  #echo "downloading validator config via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
+  #mkdir -p $WORKING_DIR/config
+  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/config $WORKING_DIR/config
+  echo "downloading validator config via rsync from gs://${gcloud_project}-chaindata-rsync/data" | logger
+  mkdir -p $WORKING_DIR/data
+  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data $WORKING_DIR/data
+  echo "restarting ag-chain-cosmos.service" | logger
+  sleep 5
+  echo "Starting agoric p2p/consensus daemon" | logger
+  sudo $SYSTEMCTL start ag0.service
+  else
+    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
+  fi
+EOF
+chmod u+x /home/agoric/restore_rsync.sh
+
+
+# ---- Create restore validator keys from rsync script
+echo "Creating rsync validator keys restore script" | logger
+cat <<'EOF' > /home/agoric/restore_validator_keys_rsync.sh
+#!/bin/bash
+set -x
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+
+# test to see if chaindata exists in the rsync chaindata bucket
+gsutil -q stat gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json
+if [ $? -eq 0 ]
+then
+  #validator key exists in bucket
+  echo "stopping ag0.service" | logger
+  systemctl stop ag0.service
+  echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
+  mkdir -p /$WORKING_DIR/.ag0/config
+  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json $WORKING_DIR/.ag0/config/
+  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/node_key.json $WORKING_DIR/.ag0/config/
+  echo "to interactively restore private key from mnemonic, "
+  echo "ag-cosmos-helper keys add $KEY_NAME --recover"
+  echo "and then"
+  echo "ag0 init --chain-id ${agoric_node_release_tag} ${validator_name}"
+  
+  echo "do not forget to restart ag0 after importing keys, with 'systemctl start ag0'"
+  #echo "restarting ag0.service" | logger
+  #sleep 3
+  #systemctl start ag0.service
+  else
+    echo "No validator keys found in bucket gs://${gcloud_project}-chaindata-rsync, aborting restore" | logger
+  fi
+EOF
+chmod u+x /home/agoric/restore_validator_keys_rsync.sh
 
 # native terraform for install ops-agent isn't working, so workaround
 curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
@@ -364,21 +320,9 @@ apt update && apt upgrade -y
 
 # Install Node.js, Yarn, and build tools
 # Install jq for formatting of JSON data
+# skipping node until agoric SDK is live on mainnet0
 #apt install nodejs=14.* yarn build-essential jq git nftables -y
 apt install build-essential jq git nftables -y
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # First remove any existing old Go installation
  rm -rf /usr/local/go
@@ -469,7 +413,7 @@ sudo -u agoric /home/agoric/configure_agoric.sh
 # test to see agoric SDK is correctly installed
 #echo "testing to see agoric SDK is correctly installed" | logger
 #ag-chain-cosmos version --long
-#agd version --long
+#ag0 version --long
 
 #backup state file
 #cp $DATA_DIR/data/priv_validator_state.json /root/
@@ -566,13 +510,13 @@ echo "systemctl status ag0" | logger
 #apt install -y google-fluentd-catch-all-config-structured
 #systemctl restart google-fluentd
 
-#echo "install completed, chain syncing" | logger
-#echo "for sync status: ag0 status 2>&1 | jq .SyncInfo"
-#echo "or check stackdriver logs for this instance"
-
 # ---- Update sudoers to allow agoric user to control the ag0 service
 echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
 #zend ALL=(ALL) NOPASSWD: /home/zend/.acme.sh/acme.sh,/bin/systemctl restart 
 cat << 'EOF' >> /etc/sudoers
 agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service
 EOF
+
+echo "install completed, chain syncing" | logger
+echo "for sync status: ag0 status 2>&1 | jq .SyncInfo"
+echo "or check stackdriver logs for this instance"
