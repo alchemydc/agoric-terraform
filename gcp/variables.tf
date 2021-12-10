@@ -16,7 +16,7 @@ variable replicas {
   type        = map(number)
 
   default = {
-    validator           = 0 
+    validator           = 1
     backup_node         = 1 
   }
 }

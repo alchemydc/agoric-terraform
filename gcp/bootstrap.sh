@@ -124,3 +124,5 @@ terraform init
 
 echo "Don't forget to 'source gcloud.env' before using Terraform!"
 echo "A dynamically named service account was created that Terraform needs to know about"
+echo "Also remember to manually restrict access to the tfstate bucket in GCS for the created project to"
+echo "the Terraform user and owners only. Specifically remove 'editors' and 'viewers' read permission"

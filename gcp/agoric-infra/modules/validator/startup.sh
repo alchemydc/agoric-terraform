@@ -107,6 +107,59 @@ EOF
 echo "Restarting rsyslogd" | logger
 systemctl restart rsyslog
 
+
+
+# native terraform for install ops-agent isn't working, so workaround
+curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
+bash add-google-cloud-ops-agent-repo.sh --also-install
+
+# ---- Setup swap
+echo "Setting up swapfile" | logger
+fallocate -l 1G /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+swapon -s
+
+# ---- Set Up Persistent Disk ----
+
+# gives a path similar to `/dev/sdb`
+DISK_PATH=$(readlink -f /dev/disk/by-id/google-${attached_disk_name})
+DATA_DIR=/home/agoric/.agoric
+
+echo "Setting up persistent disk ${attached_disk_name} at $DISK_PATH..." | logger
+
+DISK_FORMAT=ext4
+CURRENT_DISK_FORMAT=$(lsblk -i -n -o fstype $DISK_PATH)
+
+echo "Checking if disk $DISK_PATH format $CURRENT_DISK_FORMAT matches desired $DISK_FORMAT..."
+
+# If the disk has already been formatted previously (this will happen
+# if this instance has been recreated with the same disk), we skip formatting
+if [[ $CURRENT_DISK_FORMAT == $DISK_FORMAT ]]; then
+  echo "Disk $DISK_PATH is correctly formatted as $DISK_FORMAT"
+else
+  echo "Disk $DISK_PATH is not formatted correctly, formatting as $DISK_FORMAT..."
+  mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard $DISK_PATH
+fi
+
+# Mounting the volume
+echo "Mounting $DISK_PATH onto $DATA_DIR" | logger
+mkdir -vp $DATA_DIR
+DISK_UUID=$(blkid $DISK_PATH | cut -d '"' -f2)
+echo "UUID=$DISK_UUID     $DATA_DIR   auto    discard,defaults    0    0" >> /etc/fstab
+mount $DATA_DIR
+
+# add agoric user
+echo "Adding agoric user" | logger
+useradd -m agoric -s /bin/bash
+
+# set perms on datadir for agoric user
+chown -R agoric:agoric /home/agoric
+
+# set perms on datadir for agoric user
+chown -R agoric:agoric $DATA_DIR
+
 # ---- Create restore script
 echo "Creating chaindata restore script" | logger
 cat <<'EOF' > /home/agoric/restore_chaindata.sh
@@ -214,57 +267,6 @@ then
   fi
 EOF
 chmod u+x /home/agoric/restore_validator_keys_rsync.sh
-
-# native terraform for install ops-agent isn't working, so workaround
-curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
-bash add-google-cloud-ops-agent-repo.sh --also-install
-
-# ---- Setup swap
-echo "Setting up swapfile" | logger
-fallocate -l 1G /swapfile
-chmod 600 /swapfile
-mkswap /swapfile
-swapon /swapfile
-swapon -s
-
-# ---- Set Up Persistent Disk ----
-
-# gives a path similar to `/dev/sdb`
-DISK_PATH=$(readlink -f /dev/disk/by-id/google-${attached_disk_name})
-DATA_DIR=/home/agoric/.agoric
-
-echo "Setting up persistent disk ${attached_disk_name} at $DISK_PATH..." | logger
-
-DISK_FORMAT=ext4
-CURRENT_DISK_FORMAT=$(lsblk -i -n -o fstype $DISK_PATH)
-
-echo "Checking if disk $DISK_PATH format $CURRENT_DISK_FORMAT matches desired $DISK_FORMAT..."
-
-# If the disk has already been formatted previously (this will happen
-# if this instance has been recreated with the same disk), we skip formatting
-if [[ $CURRENT_DISK_FORMAT == $DISK_FORMAT ]]; then
-  echo "Disk $DISK_PATH is correctly formatted as $DISK_FORMAT"
-else
-  echo "Disk $DISK_PATH is not formatted correctly, formatting as $DISK_FORMAT..."
-  mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard $DISK_PATH
-fi
-
-# Mounting the volume
-echo "Mounting $DISK_PATH onto $DATA_DIR" | logger
-mkdir -vp $DATA_DIR
-DISK_UUID=$(blkid $DISK_PATH | cut -d '"' -f2)
-echo "UUID=$DISK_UUID     $DATA_DIR   auto    discard,defaults    0    0" >> /etc/fstab
-mount $DATA_DIR
-
-# add agoric user
-echo "Adding agoric user" | logger
-useradd -m agoric -s /bin/bash
-
-# set perms on datadir for agoric user
-chown -R agoric:agoric /home/agoric
-
-# set perms on datadir for agoric user
-chown -R agoric:agoric $DATA_DIR
 
 # Remove existing chain data
 [[ ${reset_chain_data} == "true" ]] && rm -rf $DATA_DIR/data

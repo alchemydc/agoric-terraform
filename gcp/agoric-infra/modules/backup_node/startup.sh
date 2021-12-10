@@ -491,9 +491,9 @@ chmod u+x /home/agoric/backup_rsync.sh
 cat <<'EOF' > /root/backup.crontab
 # m h  dom mon dow   command
 # backup full tarball once a day at 00:57
-57 0 * * * /root/backup.sh > /dev/null 2>&1
+57 0 * * * /home/agoric/backup.sh > /dev/null 2>&1
 # backup via rsync run every six hours at 00:17 past the hour
-17 */6 * * * /root/backup_rsync.sh > /dev/null 2>&1
+17 */6 * * * /home_agoric/backup_rsync.sh > /dev/null 2>&1
 EOF
 
 # do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
