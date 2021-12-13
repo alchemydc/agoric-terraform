@@ -96,6 +96,6 @@ resource "google_compute_disk" "backup_node" {
   type = "pd-ssd"
   #type = "pd-standard"      #disk I/O doesn't yet warrant SSD backed validators
   # in GB
-  size                      = 250
+  size                      = 2048
   physical_block_size_bytes = 4096
 }
