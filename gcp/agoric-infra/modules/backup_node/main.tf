@@ -93,8 +93,8 @@ resource "google_compute_disk" "backup_node" {
   name  = "${local.name_prefix}-agoric-data-disk-${count.index}"
   count = var.backup_node_count
 
-  type = "pd-ssd"
-  #type = "pd-standard"      #disk I/O doesn't yet warrant SSD backed validators
+  #type = "pd-ssd"
+  type = "pd-standard"      #disk I/O doesn't yet warrant SSD backed validators
   # in GB
   size                      = 2048
   physical_block_size_bytes = 4096
