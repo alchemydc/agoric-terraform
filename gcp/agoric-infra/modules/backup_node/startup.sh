@@ -107,36 +107,6 @@ EOF
 echo "Restarting rsyslogd" | logger
 systemctl restart rsyslog
 
-# ---- Create restore validator keys from rsync script
-#echo "Creating rsync validator keys restore script" | logger
-#cat <<'EOF' > /root/restore_validator_keys_rsync.sh
-##!/bin/bash
-#set -x
-#
-## test to see if chaindata exists in the rsync chaindata bucket
-#gsutil -q stat gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json
-#if [ $? -eq 0 ]
-#then
-#  #validator key exists in bucket
-#  echo "stopping ag-chain-cosmos.service" | logger
-#  systemctl stop ag-chain-cosmos.service
-#  echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
-#  mkdir -p /root/.ag-chain-cosmos/config
-#  gsutil gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json /root/.ag-chain-cosmos/config/
-#  gsutil gs://${gcloud_project}-chaindata-rsync/config/node_key.json /root/.ag-chain-cosmos/config/
-#  echo "to interactively restoring private key from mnemonic, "
-#  echo "run ag-cosmos-helper keys add $KEY_NAME --recover"
-#  
-#  echo "do not forget to restart ag-chain-cosmos after importing keys, with 'systemctl start ag-chain-cosmos'"
-#  #echo "restarting ag-chain-cosmos.service" | logger
-#  #sleep 3
-#  #systemctl start ag-chain-cosmos.service
-#  else
-#    echo "No validator keys found in bucket gs://${gcloud_project}-chaindata-rsync, aborting restore" | logger
-#  fi
-#EOF
-#chmod u+x /root/restore_validator_keys_rsync.sh
-
 # native terraform for install ops-agent isn't working, so workaround
 curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
 bash add-google-cloud-ops-agent-repo.sh --also-install
@@ -397,7 +367,7 @@ table inet filter {
                 tcp dport { 22, 26656 } ct state new accept
 
                 # permit prometheus access to telemetry ports but ONLY from agoric
-                ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 9100, 26660} ct state new accept
+                #ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 9100, 26660} ct state new accept
 
                 # accept neighbour discovery otherwise IPv6 connectivity breaks.
                 #ip6 nexthdr icmpv6 icmpv6 type { nd-neighbor-solicit,  nd-router-advert, nd-neighbor-advert } accept
@@ -485,19 +455,41 @@ EOF
 chown agoric:agoric /home/agoric/backup_rsync.sh
 chmod u+x /home/agoric/backup_rsync.sh
 
+# ----- Create snapshot backup script
+cat <<EOF > /home/agoric/backup_snapshot.sh
+#!/bin/bash
+# This script stops geth, deletes snapshots from GCS, and then snapshots the
+# disk containing the chaindata
+set -x
+echo "Deleting snapshots" | logger
+echo 'y' | gcloud compute snapshots delete ${attached_disk_name}-snapshot-latest 
+echo "Stopping Agoric Cosmos consensus daemon"
+systemctl stop ag0.service
+sleep 5
+echo "Taking snapshot of persistent chaindata disk" | logger
+gcloud compute disks snapshot ${attached_disk_name} --snapshot-names=${attached_disk_name}-snapshot-latest --zone=${gcloud_zone}
+sleep 3
+echo "Starting Agoric Cosmos consensus daemon" | logger
+systemctl start ag0.service
+EOF
+chown agoric:agoric /home/agoric/backup_snapshot.sh
+chmod u+x /home/agoric/backup_snapshot.sh
+
 # ---- Add backups to cron
 # note that this will make the backup_node geth unavailable during the backup, which is why
 # we run this on a dedicated backup node now instead of the attestation service txnode
 cat <<'EOF' > /root/backup.crontab
+# backup snapshot once a day at 00:57
+57 0 * * * /home/agoric/backup_snapshot.sh > /dev/null 2>&1
 # m h  dom mon dow   command
-# backup full tarball once a day at 00:57
-57 0 * * * /home/agoric/backup.sh > /dev/null 2>&1
-# backup via rsync run every six hours at 00:17 past the hour
-17 */6 * * * /home_agoric/backup_rsync.sh > /dev/null 2>&1
+# backup full tarball once a week at 04:20
+20 4 * * SUN /home/agoric/backup.sh > /dev/null 2>&1
+# backup via rsync run once a week at 00:07 past the hour
+07 0 * * SAT /home_agoric/backup_rsync.sh > /dev/null 2>&1
 EOF
 
 # do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
-/usr/bin/crontab /root/backup.crontab
+#/usr/bin/crontab /root/backup.crontab
 
 # ---- Create restore script
 echo "Creating chaindata restore script" | logger
@@ -570,7 +562,6 @@ then
   fi
 EOF
 chmod u+x /home/agoric/restore_rsync.sh
-
 
 # ---- Update sudoers to allow agoric user to control the ag0 service
 echo "Updating sudoers to allow agoric user to control the ag0 service" | logger

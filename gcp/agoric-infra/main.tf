@@ -97,6 +97,7 @@ module "backup_node" {
   block_time                            = var.block_time
   agoric_env                            = var.agoric_env
   gcloud_project                        = var.gcloud_project
+  gcloud_zone                           = var.gcloud_zone
   instance_type                         = var.instance_types["backup_node"]
   agoric_node_release_repository        = var.agoric_node_release_repository
   agoric_node_release_tag               = var.agoric_node_release_tag

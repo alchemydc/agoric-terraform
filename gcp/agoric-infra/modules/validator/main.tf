@@ -93,8 +93,8 @@ resource "google_compute_disk" "validator" {
   name  = "${local.name_prefix}-agoric-data-disk-${count.index}"
   count = var.validator_count
 
-  type = "pd-ssd"
-  #type = "pd-standard"      #slower but cheaper
+  #type = "pd-ssd"
+  type = "pd-standard"      #slower but cheaper
   # in GB
   size                      = 1024
   physical_block_size_bytes = 4096
