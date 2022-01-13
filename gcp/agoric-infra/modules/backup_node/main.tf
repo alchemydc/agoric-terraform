@@ -62,6 +62,7 @@ labels = {
   metadata_startup_script = templatefile(
     format("%s/startup.sh", path.module), {
       attached_disk_name : local.attached_disk_name,
+      data_disk_name: "${local.name_prefix}-agoric-data-disk-${count.index}",
       block_time : var.block_time,
       agoric_node_release_repository : var.agoric_node_release_repository,
       agoric_node_release_tag : var.agoric_node_release_tag,

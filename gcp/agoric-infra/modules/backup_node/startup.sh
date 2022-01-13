@@ -458,19 +458,23 @@ chmod u+x /home/agoric/backup_rsync.sh
 # ----- Create snapshot backup script
 cat <<EOF > /home/agoric/backup_snapshot.sh
 #!/bin/bash
-# This script stops geth, deletes snapshots from GCS, and then snapshots the
+# This script stops ag0, deletes snapshots from GCS, and then snapshots the
 # disk containing the chaindata
 set -x
+
+SYSTEMCTL='/usr/bin/systemctl'
+
 echo "Deleting snapshots" | logger
-echo 'y' | gcloud compute snapshots delete ${attached_disk_name}-snapshot-latest 
+echo 'y' | gcloud compute snapshots delete ${data_disk_name}-snapshot-latest 
 echo "Stopping Agoric Cosmos consensus daemon"
-systemctl stop ag0.service
+
+sudo \$SYSTEMCTL stop ag0.service
 sleep 5
 echo "Taking snapshot of persistent chaindata disk" | logger
-gcloud compute disks snapshot ${attached_disk_name} --snapshot-names=${attached_disk_name}-snapshot-latest --zone=${gcloud_zone}
+gcloud compute disks snapshot ${data_disk_name} --snapshot-names=${data_disk_name}-snapshot-latest --zone=${gcloud_zone}
 sleep 3
 echo "Starting Agoric Cosmos consensus daemon" | logger
-systemctl start ag0.service
+sudo \$SYSTEMCTL start ag0.service
 EOF
 chown agoric:agoric /home/agoric/backup_snapshot.sh
 chmod u+x /home/agoric/backup_snapshot.sh
@@ -478,7 +482,7 @@ chmod u+x /home/agoric/backup_snapshot.sh
 # ---- Add backups to cron
 # note that this will make the backup_node geth unavailable during the backup, which is why
 # we run this on a dedicated backup node now instead of the attestation service txnode
-cat <<'EOF' > /root/backup.crontab
+cat <<'EOF' > /home/agoric/backup.crontab
 # backup snapshot once a day at 00:57
 57 0 * * * /home/agoric/backup_snapshot.sh > /dev/null 2>&1
 # m h  dom mon dow   command
@@ -489,7 +493,7 @@ cat <<'EOF' > /root/backup.crontab
 EOF
 
 # do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
-#/usr/bin/crontab /root/backup.crontab
+#sudo -u agoric /usr/bin/crontab /home/agoric/backup.crontab
 
 # ---- Create restore script
 echo "Creating chaindata restore script" | logger
@@ -567,5 +571,5 @@ chmod u+x /home/agoric/restore_rsync.sh
 echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
 #zend ALL=(ALL) NOPASSWD: /home/zend/.acme.sh/acme.sh,/bin/systemctl restart 
 cat << 'EOF' >> /etc/sudoers
-agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service
+agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service,/usr/bin/systemctl status ag0.service
 EOF
