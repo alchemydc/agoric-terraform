@@ -5,7 +5,7 @@ export HOME="/root"
 # helpful packages
 echo "Updating packages" | logger
 apt update && apt -y upgrade
-echo "Installing htop and screen" | logger
+echo "Installing needful packages" | logger
 apt install -y htop screen wget file
 
 # ---- Configure logrotate ----
@@ -364,17 +364,21 @@ sudo -u agoric /home/agoric/install_agoric.sh
 # Create agoric configurator script
 cat << EOF >> /home/agoric/configure_agoric.sh
 #!/bin/bash
-set -x
+set -ex
 
 . /home/agoric/.profile
 cd $DATA_DIR
+echo "Moving $DATA_DIR/config/config.toml $DATA_DIR/config/config.toml.bak" | logger
+mv -v $DATA_DIR/config/config.toml $DATA_DIR/config/config.toml.bak
 # First, get the network config for the current network.
 curl ${network_uri}/network-config > chain.json
 # Set chain name to the correct value
 chainName=\`jq -r .chainName < chain.json\`
 chainName=\$(jq -r .chainName < chain.json)
 # Confirm value: should be something like agoricdev-N.
-echo \$chainName
+echo "chainName: \$chainName"
+echo "Removing old genesis (if necessary)"
+rm -fv $DATA_DIR/config/genesis.json 
 ag0 init --chain-id \$chainName ${validator_name}
 # Download the genesis file
 curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
@@ -464,7 +468,7 @@ table inet filter {
                 tcp dport { 22, 26656 } ct state new accept
 
                 # permit prometheus access to telemetry ports but ONLY from agoric
-                ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 9100, 26660} ct state new accept
+                #ip saddr $AGORIC_PROMETHEUS_IP tcp dport { 9464, 9100, 26660} ct state new accept
 
                 # accept neighbour discovery otherwise IPv6 connectivity breaks.
                 #ip6 nexthdr icmpv6 icmpv6 type { nd-neighbor-solicit,  nd-router-advert, nd-neighbor-advert } accept
@@ -490,6 +494,10 @@ echo "systemctl status ag0" | logger
  systemctl daemon-reload
  systemctl start ag0
 
+echo "install completed, chain syncing" | logger
+echo "for sync status: ag0 status | jq .SyncInfo"
+echo "or check stackdriver logs for this instance"
+
 # install prometheus node exporter
 #mkdir -p $HOME/prometheus
 #cd $HOME/prometheus
@@ -499,26 +507,13 @@ echo "systemctl status ag0" | logger
 #./node_exporter &    # fixme do this with systemd, and run as not root!
 
 #--- remove compilers
-#echo "Removing compilers and unnecessary packages" | logger
-# apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
-# apt -y autoremove
-
-# reinstall fluentd which is getting removed by something
-# ---- Install Fluent Log Collector
-#echo "Installing google fluent log collector agent" | logger
-#curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh
-#bash add-logging-agent-repo.sh
-#apt install -y google-fluentd
-#apt install -y google-fluentd-catch-all-config-structured
-#systemctl restart google-fluentd
+echo "Removing compilers and unnecessary packages" | logger
+apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
+apt -y autoremove
 
 # ---- Update sudoers to allow agoric user to control the ag0 service
 echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
 #zend ALL=(ALL) NOPASSWD: /home/zend/.acme.sh/acme.sh,/bin/systemctl restart 
 cat << 'EOF' >> /etc/sudoers
-agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service
+agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service,/usr/bin/systemctl status ag0.service
 EOF
-
-echo "install completed, chain syncing" | logger
-echo "for sync status: ag0 status 2>&1 | jq .SyncInfo"
-echo "or check stackdriver logs for this instance"

@@ -1,6 +1,7 @@
 locals {
-  attached_disk_name = "agoric-data"
+  attached_disk_name = "agoric-data-tmp"
   name_prefix = "${var.gcloud_project}-validator"
+  snapshot = "${var.gcloud_project}-backup-node-agoric-data-disk-0-snapshot-latest" 
 }
 
 resource "google_compute_address" "validator" {
@@ -22,11 +23,21 @@ resource "google_compute_address" "validator_internal" {
   count = var.validator_count
 }
 
+resource "google_compute_disk" "validator-tmp" {
+  name = "${local.attached_disk_name}-${count.index}"
+  type = "pd-standard"
+  #size = var.data_disk_size
+  # FIXME: parameterize this
+  size = 2048
+  snapshot = "${local.snapshot}"
+  count = var.validator_count
+}
+
 resource "google_compute_instance" "validator" {
   name         = "${local.name_prefix}-${count.index}"
   machine_type = var.instance_type
 
-  deletion_protection = true
+  deletion_protection = false
 
   count = var.validator_count
 
@@ -36,7 +47,6 @@ resource "google_compute_instance" "validator" {
       env = "${var.agoric_env}"
       role = "validator"
   }
-
 
   allow_stopping_for_update = false
 
@@ -48,7 +58,7 @@ resource "google_compute_instance" "validator" {
   }
 
   attached_disk {
-    source      = google_compute_disk.validator[count.index].self_link
+    source      = google_compute_disk.validator-tmp[count.index].self_link
     device_name = local.attached_disk_name
   }
 
@@ -89,13 +99,3 @@ resource "random_id" "validator" {
   byte_length = 2
 }
 
-resource "google_compute_disk" "validator" {
-  name  = "${local.name_prefix}-agoric-data-disk-${count.index}"
-  count = var.validator_count
-
-  #type = "pd-ssd"
-  type = "pd-standard"      #slower but cheaper
-  # in GB
-  size                      = 1024
-  physical_block_size_bytes = 4096
-}

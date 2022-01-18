@@ -16,7 +16,7 @@ variable replicas {
   type        = map(number)
 
   default = {
-    validator           = 0
+    validator           = 1
     backup_node         = 1 
   }
 }
@@ -82,7 +82,7 @@ variable backup_node_name {
 variable reset_chain_data {
   type        = bool
   description = "Specifies if the existing chain data should be removed while creating the instance"
-  default     = true    #will restore chaindata from GCS if available
+  default     = false    #will restore chaindata from GCS if available
 }
 
 variable block_time {

@@ -57,7 +57,7 @@ variable backup_node_count {
 variable reset_chain_data {
   type        = bool
   description = "Specifies if the existing chain data should be removed while creating the instance"
-  default     = true
+  default     = false
 }
 
 variable backup_node_max_peers {

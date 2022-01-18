@@ -5,8 +5,8 @@ export HOME="/root"
 # helpful packages
 echo "Updating packages" | logger
 apt update && apt -y upgrade
-echo "Installing htop and screen" | logger
-apt install -y htop screen wget pigz
+echo "Installing needful packages" | logger
+apt install -y htop screen wget pigz file 
 
 # ---- Configure logrotate ----
 echo "Configuring logrotate" | logger
@@ -267,17 +267,21 @@ sudo -u agoric /home/agoric/install_agoric.sh
 # Create agoric configurator script
 cat << EOF >> /home/agoric/configure_agoric.sh
 #!/bin/bash
-set -x
+set -ex
 
 . /home/agoric/.profile
 cd $DATA_DIR
+echo "Moving $DATA_DIR/config/config.toml $DATA_DIR/config/config.toml.bak" | logger
+mv -v $DATA_DIR/config/config.toml $DATA_DIR/config/config.toml.bak
 # First, get the network config for the current network.
 curl ${network_uri}/network-config > chain.json
 # Set chain name to the correct value
 chainName=\`jq -r .chainName < chain.json\`
 chainName=\$(jq -r .chainName < chain.json)
 # Confirm value: should be something like agoricdev-N.
-echo \$chainName
+echo "chainName: \$chainName"
+echo "Removing old genesis (if necessary)"
+rm -fv $DATA_DIR/config/genesis.json 
 ag0 init --chain-id \$chainName ${backup_node_name}
 # Download the genesis file
 curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
@@ -394,7 +398,7 @@ echo "systemctl status ag0" | logger
  systemctl start ag0
 
 echo "install completed, chain syncing" | logger
-echo "for sync status: ag0 status 2>&1 | jq .SyncInfo"
+echo "for sync status: ag0 status | jq .SyncInfo"
 echo "or check stackdriver logs for this instance"
 
 # ---- Create backup script
