@@ -16,11 +16,16 @@ variable gcloud_project {
 variable instance_types {
   description = "The instance type for each component"
   type        = map(string)
+}
 
-  default = {
-    validator           = "n1-standard-1"
-    backup_node         = "n1-standard-1"
-  }
+variable "boot_disk_size" { 
+  type = number
+  description = "Size (in GB) of the ephemeral boot disk used for all instances"
+}
+
+variable "data_disk_size" { 
+  type = number
+  description = "Size (in GB) of the persistent data disk used for all instances"
 }
 
 variable agoric_node_release_repository {

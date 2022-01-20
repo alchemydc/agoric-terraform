@@ -17,7 +17,7 @@ variable replicas {
 
   default = {
     validator           = 0
-    backup_node         = 1 
+    backup_node         = 1
   }
 }
 
@@ -31,6 +31,18 @@ variable instance_types {
     validator           = "n2d-standard-2"  
     backup_node         = "n1-standard-1"
   }
+}
+
+variable "boot_disk_size" { 
+  type = number
+  description = "Size (in GB) of the ephemeral boot disk used for all instances"
+  default = 10
+}
+
+variable "data_disk_size" { 
+  type = number
+  description = "Size (in GB) of the persistent data disk used for all instances"
+  default = 250
 }
 
 variable network_name {

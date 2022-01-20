@@ -99,6 +99,8 @@ module "backup_node" {
   gcloud_project                        = var.gcloud_project
   gcloud_zone                           = var.gcloud_zone
   instance_type                         = var.instance_types["backup_node"]
+  boot_disk_size                        = var.boot_disk_size
+  data_disk_size                        = var.data_disk_size
   agoric_node_release_repository        = var.agoric_node_release_repository
   agoric_node_release_tag               = var.agoric_node_release_tag
   network_id                            = var.network_id
@@ -118,6 +120,8 @@ module "validator" {
   agoric_env                            = var.agoric_env
   gcloud_project                        = var.gcloud_project
   instance_type                         = var.instance_types["validator"]
+  boot_disk_size                        = var.boot_disk_size
+  data_disk_size                        = var.data_disk_size
   agoric_node_release_repository        = var.agoric_node_release_repository
   agoric_node_release_tag               = var.agoric_node_release_tag
   network_id                            = var.network_id

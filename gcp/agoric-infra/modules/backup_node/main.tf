@@ -22,6 +22,14 @@ resource "google_compute_address" "backup_node_internal" {
   count = var.backup_node_count
 }
 
+resource "google_compute_disk" "backup_node" {
+  name  = "${local.name_prefix}-agoric-data-disk-${count.index}"
+  count = var.backup_node_count
+  type = "pd-standard"      # use type = "pd-ssd" if I/O performance is insufficient
+  size                      = var.data_disk_size
+  physical_block_size_bytes = 4096
+}
+
 resource "google_compute_instance" "backup_node" {
   name         = "${local.name_prefix}-${count.index}"
   machine_type = var.instance_type
@@ -42,7 +50,7 @@ labels = {
   boot_disk {
     initialize_params {
       image = "debian-cloud/debian-11"
-      size = 10
+      size = var.boot_disk_size
     }
   }
 
@@ -89,15 +97,4 @@ labels = {
 resource "random_id" "backup_node" {
   count = var.backup_node_count
   byte_length = 2
-}
-
-resource "google_compute_disk" "backup_node" {
-  name  = "${local.name_prefix}-agoric-data-disk-${count.index}"
-  count = var.backup_node_count
-
-  #type = "pd-ssd"
-  type = "pd-standard"      #disk I/O doesn't yet warrant SSD backed validators
-  # in GB
-  size                      = 2048
-  physical_block_size_bytes = 4096
 }

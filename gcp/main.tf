@@ -65,6 +65,8 @@ module "agoric_cluster" {
   network_uri             = var.network_uri
   agoric_env              = var.agoric_env
   instance_types          = var.instance_types
+  boot_disk_size          = var.boot_disk_size
+  data_disk_size          = var.data_disk_size
   service_account_scopes  = var.service_account_scopes
 
   stackdriver_logging_exclusions = var.stackdriver_logging_exclusions
