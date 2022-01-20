@@ -28,6 +28,11 @@ variable "data_disk_size" {
   description = "Size (in GB) of the persistent data disk used for all instances"
 }
 
+variable "cloud_image" {
+  type = string
+  description = "image to use for creating compute instances"
+}
+
 variable agoric_node_release_repository {
   type        = string
   description = "Repository of the agoric release"

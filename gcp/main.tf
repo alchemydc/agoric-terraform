@@ -67,6 +67,7 @@ module "agoric_cluster" {
   instance_types          = var.instance_types
   boot_disk_size          = var.boot_disk_size
   data_disk_size          = var.data_disk_size
+  cloud_image             = var.cloud_image
   service_account_scopes  = var.service_account_scopes
 
   stackdriver_logging_exclusions = var.stackdriver_logging_exclusions

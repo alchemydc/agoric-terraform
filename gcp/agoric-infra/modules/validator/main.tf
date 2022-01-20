@@ -25,10 +25,8 @@ resource "google_compute_address" "validator_internal" {
 
 resource "google_compute_disk" "validator-tmp" {
   name = "${local.attached_disk_name}-${count.index}"
-  type = "pd-standard"
-  #size = var.data_disk_size
-  # FIXME: parameterize this
-  size = 2048
+  type = "pd-standard"    # use type = "pd-ssd" if I/O performance is insufficient
+  size = var.data_disk_size
   snapshot = "${local.snapshot}"
   count = var.validator_count
 }
@@ -52,8 +50,8 @@ resource "google_compute_instance" "validator" {
 
   boot_disk {
     initialize_params {
-      image = "debian-cloud/debian-11"
-      size = 10
+      image = var.cloud_image
+      size = var.boot_disk_size
     }
   }
 

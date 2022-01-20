@@ -45,6 +45,12 @@ variable "data_disk_size" {
   default = 250
 }
 
+variable "cloud_image" {
+  type = string
+  description = "image to use for creating compute instances"
+  default = "debian-cloud/debian-11"
+}
+
 variable network_name {
   description = "The name of the new VPC network created"
   type        = string

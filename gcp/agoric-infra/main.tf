@@ -101,6 +101,7 @@ module "backup_node" {
   instance_type                         = var.instance_types["backup_node"]
   boot_disk_size                        = var.boot_disk_size
   data_disk_size                        = var.data_disk_size
+  cloud_image                           = var.cloud_image
   agoric_node_release_repository        = var.agoric_node_release_repository
   agoric_node_release_tag               = var.agoric_node_release_tag
   network_id                            = var.network_id
@@ -122,6 +123,7 @@ module "validator" {
   instance_type                         = var.instance_types["validator"]
   boot_disk_size                        = var.boot_disk_size
   data_disk_size                        = var.data_disk_size
+  cloud_image                           = var.cloud_image
   agoric_node_release_repository        = var.agoric_node_release_repository
   agoric_node_release_tag               = var.agoric_node_release_tag
   network_id                            = var.network_id
