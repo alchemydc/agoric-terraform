@@ -26,10 +26,10 @@ variable instance_types {
   type        = map(string)
 
   default = {
-    #validator           = "n1-standard-2"
     #validator           = "t2d-standard-2"  # not available weirdly in us-central1-c
     validator           = "n2d-standard-2"  
-    backup_node         = "n1-standard-1"
+    #backup_node         = "n2d-standard-1"
+    backup_node         = "t2d-standard-1"
   }
 }
 
@@ -54,14 +54,12 @@ variable "cloud_image" {
 variable network_name {
   description = "The name of the new VPC network created"
   type        = string
-
   default = "agoric-network"
 }
 
 variable agoric_env {
   description = "The Agoric network to connect with"
   type        = string
-
   default = "mainnet0"
 }
 

@@ -85,7 +85,7 @@ labels = {
       reset_chain_data : var.reset_chain_data,
       rid : count.index,
       prometheus_exporter_tarball : var.prometheus_exporter_tarball,
-      fullnode_external_address : google_compute_address.backup_node[count.index].address
+      backup_node_external_address : google_compute_address.backup_node[count.index].address
     }
   )
   

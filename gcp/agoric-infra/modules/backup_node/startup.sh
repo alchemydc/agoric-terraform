@@ -5,7 +5,7 @@ export HOME="/root"
 # helpful packages
 echo "Updating packages" | logger
 apt update && apt -y upgrade
-echo "Installing needful packages" | logger
+echo "Installing needed packages" | logger
 apt install -y htop screen wget pigz file 
 
 # ---- Configure logrotate ----
@@ -108,6 +108,7 @@ echo "Restarting rsyslogd" | logger
 systemctl restart rsyslog
 
 # native terraform for install ops-agent isn't working, so workaround
+echo "Installing GCP ops-agent" | logger
 curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
 bash add-google-cloud-ops-agent-repo.sh --also-install
 
@@ -122,16 +123,12 @@ swapon -s
 
 
 # ---- Set Up Persistent Disk ----
-
 # gives a path similar to `/dev/sdb`
 DISK_PATH=$(readlink -f /dev/disk/by-id/google-${attached_disk_name})
 DATA_DIR=/home/agoric/.agoric
-
 echo "Setting up persistent disk ${attached_disk_name} at $DISK_PATH..." | logger
-
 DISK_FORMAT=ext4
 CURRENT_DISK_FORMAT=$(lsblk -i -n -o fstype $DISK_PATH)
-
 echo "Checking if disk $DISK_PATH format $CURRENT_DISK_FORMAT matches desired $DISK_FORMAT..."
 
 # If the disk has already been formatted previously (this will happen
@@ -155,13 +152,15 @@ echo "Adding agoric user" | logger
 useradd -m agoric -s /bin/bash
 
 # set perms on datadir for agoric user
+echo "Adding setting perms on agoric user's home dir" | logger
 chown -R agoric:agoric /home/agoric
 
 # set perms on datadir for agoric user
+echo "Adding setting perms on $DATA_DIR" | logger
 chown -R agoric:agoric $DATA_DIR
 
 # Remove existing chain data
-[[ ${reset_chain_data} == "true" ]] && rm -rf $DATA_DIR/data
+[[ ${reset_chain_data} == "true" ]] && echo "Removing existing blockchain data" | logger && rm -rf $DATA_DIR/data
 
 # ---- Useful aliases ----
 echo "Configuring aliases" | logger
@@ -184,34 +183,16 @@ bindkey -k F1 prev      # F11 = prev
 bindkey -k F2 next      # F12 = next
 EOF
 
-# warp restore scripts disabled until they're tested w/ the agoric chaindata format
-# --- run restore script
-# this script tries to restore chaindata from a GCS hosted tarball.
-# if the chaindata doesn't exist on GCS, geth will start normal (slow) p2p sync
-#echo "Attempting to restore chaindata from backup tarball"
-#bash /root/restore.sh
-
-# todo: add some logic to look at the chaindata tarball bucket versus the rsync bucket and pick the best one.
-# for now we try both, with rsync taking precedence b/c it runs last.
-
-# --- run rsync restore script
-# this script tries to restore chaindata from a GCS hosted bucket via rsync.
-# if the chaindata doesn't exist on GCS, geth will start normal (slow) p2p sync, perhaps boosted by what the tarball provided
-#echo "Attempting to restore chaindata from backup via rsync"
-#bash /root/restore_rsync.sh
-
 # FIXME:parameterize these as variables and expose properly via terraform
 # presently used for local firewall rules, which really should be controlled by variables
-AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
-AGORIC_PROMETHEUS_IP="142.93.181.215"
+#AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
+#AGORIC_PROMETHEUS_IP="142.93.181.215"
 #AGORIC_PROMETHEUS_IP=`$AGORIC_PROMETHEUS_HOSTNAME | cut -d ' ' -f 4`
 # following will expose Agoric VM (SwingSet) metrics globally on tcp/94643
 # see https://github.com/Agoric/agoric-sdk/blob/master/packages/cosmic-swingset/README-telemetry.md for more info
-OTEL_EXPORTER_PROMETHEUS_PORT=9464
+#OTEL_EXPORTER_PROMETHEUS_PORT=9464
 
-# refresh packages and update all
-apt update && apt upgrade -y
-
+# agoric SDK dependencies and installing disabled pending mainnet phase 1
 # Download the nodesource PPA for Node.js
 #echo "Installing nodejs and yarn" | logger
 #curl https://deb.nodesource.com/setup_12.x |  bash
@@ -227,16 +208,17 @@ apt update && apt upgrade -y
 # Install Node.js, Yarn, and build tools
 # Install jq for formatting of JSON data
 #apt install nodejs=12.* yarn build-essential jq git nftables -y
+# build essential is required for both the Cosmos golang SDK base layer as well as the Agoric SDK
 apt install build-essential jq git nftables -y
 
-# First remove any existing old Go installation
- rm -rf /usr/local/go
-
 # Install correct Go version
+# First remove any existing old Go installation
+rm -rf /usr/local/go
 echo "installing golang" | logger
 curl https://dl.google.com/go/go1.15.7.linux-amd64.tar.gz |  tar -C/usr/local -zxvf -
 
 # Update environment variables to include go
+echo "Creating .profile for agoric user to put go in path" | logger
 cat <<'EOF' >> /home/agoric/.profile
 export GOROOT=/usr/local/go
 export GOPATH=$HOME/go
@@ -246,9 +228,13 @@ EOF
 chown agoric:agoric /home/agoric/.profile
 
 # Create agoric install script
+# note that EOF is *not* quoted here so that the bash env variables will get expanded
+# terraform env vars *are* expanded even when using 'cat << 'EOF' .... 
+
+echo "Creating /home/agoric/install_agoric.sh" | logger
 cat << EOF >> /home/agoric/install_agoric.sh
 #!/bin/bash
-set -x
+set -ex
 
 . /home/agoric/.profile
 cd $DATA_DIR
@@ -258,56 +244,69 @@ make build
 make install
 EOF
 
-
 chmod u+x /home/agoric/install_agoric.sh
 chown agoric:agoric /home/agoric/install_agoric.sh
-echo "Checking out ag0 from github and building it" | logger
+
+echo "Running /home/agoric/install_agoric.sh, which checks out ag0 from github and builds it" | logger
 sudo -u agoric /home/agoric/install_agoric.sh
 
+echo "agoric ag0 installed" | logger
+sudo -u agoric -i ag0 version --long | logger
+
 # Create agoric configurator script
+echo "Creating /home/agoric/configure_agoric.sh" | logger
 cat << EOF >> /home/agoric/configure_agoric.sh
 #!/bin/bash
-set -ex
+set -x
 
+DATA_DIR="/home/agoric/.agoric"
 . /home/agoric/.profile
-cd $DATA_DIR
-echo "Moving $DATA_DIR/config/config.toml $DATA_DIR/config/config.toml.bak" | logger
-mv -v $DATA_DIR/config/config.toml $DATA_DIR/config/config.toml.bak
+
+cd \$DATA_DIR
+# check for existing configured installation
+if [ -e "\$DATA_DIR/data/blockstore.db" ]; then
+  echo "Existing agoric chaindata found, skipping unsafe-reset-all"
+  echo "Setting moniker to ${backup_node_name} in config.toml"
+  sed -i.bak "s/^moniker = .*/moniker = \"${backup_node_name}\"/" \$DATA_DIR/config/config.toml
+  echo "Updating external_address to 'tcp://${backup_node_external_address}:26656' in config.toml" | logger
+  sed -i.bak "s/^external_address = .*/external_address = \"tcp:\/\/${backup_node_external_address}:26656\"/" \$DATA_DIR/config/config.toml
+  echo "Skipping download of genesis.json and ag0 unsafe-reset-all"
+  exit 0;
+fi
+
 # First, get the network config for the current network.
 curl ${network_uri}/network-config > chain.json
 # Set chain name to the correct value
-chainName=\`jq -r .chainName < chain.json\`
 chainName=\$(jq -r .chainName < chain.json)
-# Confirm value: should be something like agoricdev-N.
 echo "chainName: \$chainName"
 echo "Removing old genesis (if necessary)"
-rm -fv $DATA_DIR/config/genesis.json 
+rm -fv \$DATA_DIR/config/genesis.json 
+echo "Initializing chain"
 ag0 init --chain-id \$chainName ${backup_node_name}
 # Download the genesis file
-curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
+echo "Downloading genesis"
+curl ${network_uri}/genesis.json > \$DATA_DIR/config/genesis.json 
 # Reset the state of your validator.
+echo "Deleting chaindata and resetting everything: ag0 unsafe-reset-all"
 ag0 unsafe-reset-all
 # Set peers variable to the correct value
+echo "Setting initial peers and seeds in config.toml from downloaded network-config"
 peers=\$(jq '.peers | join(",")' < chain.json)
-
 # Set seeds variable to the correct value.
 seeds=\$(jq '.seeds | join(",")' < chain.json)
-
-# Confirm values, each should be something like "077c58e4b207d02bbbb1b68d6e7e1df08ce18a8a@178.62.245.23:26656,..."
-echo \$peers
-echo \$seeds
-# Fix `Error: failed to parse log level`
-sed -i.bak 's/^log_level/# log_level/' $DATA_DIR/config/config.toml
 # Replace the seeds and persistent_peers values
-sed -i.bak -e "s/^seeds *=.*/seeds = \$seeds/; s/^persistent_peers *=.*/persistent_peers = \$peers/" $DATA_DIR/config/config.toml
-# set publicly reachable p2p addr in config.toml
-sed -i.bak 's/external_address = ""/#external_address = ""/' $DATA_DIR/config/config.toml
-echo "# external address to advertise to p2p network \n" >> $DATA_DIR/config/config.toml
-echo "external_address = \"tcp://${fullnode_external_address}:26656\"" >> $DATA_DIR/config/config.toml
+sed -i.bak -e "s/^seeds *=.*/seeds = \$seeds/; s/^persistent_peers *=.*/persistent_peers = \$peers/" \$DATA_DIR/config/config.toml
+# set publicly routable p2p addr in config.toml
+echo "Setting publicly reachable p2p addr in config.toml"
+echo "Updating external_address to \"tcp://${backup_node_external_address}:26656\" in config.toml" | logger
+sed -i.bak "s/^external_address = .*/external_address = \"tcp:\/\/${backup_node_external_address}:26656\"/" \$DATA_DIR/config/config.toml
+echo "Setting fastsync to v2 in config.toml" | logger
+sed -i.bak 's/^version = "v[0-1]"/version = "v2"/' \$DATA_DIR/config/config.toml
 EOF
 
 chmod u+x /home/agoric/configure_agoric.sh
 chown agoric:agoric /home/agoric/configure_agoric.sh
+
 echo "Configuring agoric" | logger
 sudo -u agoric /home/agoric/configure_agoric.sh
 
@@ -367,7 +366,7 @@ table inet filter {
                 # accept traffic originated from us
                 ct state established,related accept
 
-                # activate the following line to accept common local services
+                # permit SSH and cosmos p2p traffic from anywhere
                 tcp dport { 22, 26656 } ct state new accept
 
                 # permit prometheus access to telemetry ports but ONLY from agoric
@@ -426,7 +425,7 @@ echo "Tarring up chaindata to $WORKING_DIR/backup/chaindata.tgz" | logger
 tar -I "pigz --fast" -C $WORKING_DIR -cvf $WORKING_DIR/backup/chaindata.tgz data
 
 echo "Copying tarball to GCS bucket gs://${gcloud_project}-chaindata" | logger
-gsutil cp $WORKING_DIR/backup/chaindata.tgz gs://${gcloud_project}-chaindata
+gsutil -m cp $WORKING_DIR/backup/chaindata.tgz gs://${gcloud_project}-chaindata
 
 echo "Removing tarball from local fs" | logger
 rm -f $WORKING_DIR/backup/chaindata.tgz
@@ -460,7 +459,7 @@ chown agoric:agoric /home/agoric/backup_rsync.sh
 chmod u+x /home/agoric/backup_rsync.sh
 
 # ----- Create snapshot backup script
-cat <<EOF > /home/agoric/backup_snapshot.sh
+cat << EOF > /home/agoric/backup_snapshot.sh
 #!/bin/bash
 # This script stops ag0, deletes snapshots from GCS, and then snapshots the
 # disk containing the chaindata
@@ -503,7 +502,7 @@ EOF
 echo "Creating chaindata restore script" | logger
 cat <<'EOF' > /home/agoric/restore_chaindata.sh
 #!/bin/bash
-set -x
+set -ex
 
 WORKING_DIR='/home/agoric/.agoric'
 SYSTEMCTL='/usr/bin/systemctl'
@@ -520,7 +519,7 @@ then
   mkdir -p $WORKING_DIR/restore
   mkdir -p $WORKING_DIR/data  
   echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
-  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
+  gsutil -m cp gs://${gcloud_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
   echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
   sudo $SYSTEMCTL stop ag0.service
   sleep 5
