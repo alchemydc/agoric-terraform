@@ -244,7 +244,7 @@ SYSTEMCTL='/usr/bin/systemctl'
 BUCKET_URI="gs://${gcloud_project}-validator-config/"
 
 # unclear whether or not ag0 needs to be stopped to back these keys up properly
-gsutil cp -vr \$WORKING_DIR/config \$BUCKET_URI
+gsutil -m cp -vr \$WORKING_DIR/config \$BUCKET_URI
 
 EOF
 chmod u+x /home/agoric/backup_validator_keys.sh
@@ -256,7 +256,7 @@ cat << EOF > /home/agoric/restore_validator_keys.sh
 #!/bin/bash
 set -ex
 
-WORKING_DIR='/home/agoric/.agoric'
+WORKING_DIR='/home/agoric/.agoric/config'
 SYSTEMCTL='/usr/bin/systemctl'
 BUCKET_URI="gs://${gcloud_project}-validator-config/config"
 
@@ -265,15 +265,13 @@ gsutil -q stat \$BUCKET_URI/priv_validator_key.json
 if [ $? -eq 0 ]
 then
   #validator keys exists in bucket
-  echo "stopping ag0.service" | logger
-  sudo systemctl stop ag0.service
   echo "downloading validator keys from \$BUCKET_URI" | logger
-  mkdir -vp \$WORKING_DIR/.ag0/config
-  gsutil cp \$BUCKET_URI/priv_validator_key.json \$WORKING_DIR/.ag0/config/
-  gsutil cp \$BUCKET_URI/node_key.json \$WORKING_DIR/.ag0/config/
+  mkdir -vp \$WORKING_DIR
+  gsutil cp \$BUCKET_URI/priv_validator_key.json \$WORKING_DIR/
+  gsutil cp \$BUCKET_URI/node_key.json \$WORKING_DIR/
   echo "do not forget to restart ag0 after importing keys, with 'systemctl restart ag0'"
-  echo "to interactively restore private key from mnemonic, "
-  echo "ag-cosmos-helper keys add $KEY_NAME --recover"
+  echo "to interactively restore private key from mnemonic: "
+  echo "ag0 keys add [KEY_NAME] --recover"
   else
     echo "No validator keys found in bucket \$BUCKET_URI, aborting restore" | logger
   fi
