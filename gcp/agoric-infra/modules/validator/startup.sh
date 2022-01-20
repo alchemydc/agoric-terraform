@@ -160,11 +160,11 @@ chown -R agoric:agoric /home/agoric
 # set perms on datadir for agoric user
 chown -R agoric:agoric $DATA_DIR
 
-# ---- Create restore script
+# ---- Create chaindata restore script
 echo "Creating chaindata restore script" | logger
 cat <<'EOF' > /home/agoric/restore_chaindata.sh
 #!/bin/bash
-set -x
+set -ex
 
 WORKING_DIR='/home/agoric/.agoric'
 SYSTEMCTL='/usr/bin/systemctl'
@@ -199,7 +199,7 @@ EOF
 chown agoric:agoric /home/agoric/restore_chaindata.sh
 chmod u+x /home/agoric/restore_chaindata.sh
 
-# ---- Create rsync restore script
+# ---- Create rsync chaindata restore script
 echo "Creating rsync chaindata restore script" | logger
 cat <<'EOF' > /home/agoric/restore_rsync.sh
 #!/bin/bash
@@ -233,42 +233,56 @@ EOF
 chmod u+x /home/agoric/restore_rsync.sh
 
 
-# ---- Create restore validator keys from rsync script
-echo "Creating rsync validator keys restore script" | logger
-cat <<'EOF' > /home/agoric/restore_validator_keys_rsync.sh
+# ---- Create backup validator keys to GCS/rsync script
+echo "Creating validator keys backup script" | logger
+cat << EOF > /home/agoric/backup_validator_keys.sh
 #!/bin/bash
-set -x
+set -ex
 
 WORKING_DIR='/home/agoric/.agoric'
 SYSTEMCTL='/usr/bin/systemctl'
+BUCKET_URI="gs://${gcloud_project}-validator-config/"
 
-# test to see if chaindata exists in the rsync chaindata bucket
-gsutil -q stat gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json
+# unclear whether or not ag0 needs to be stopped to back these keys up properly
+gsutil cp -vr \$WORKING_DIR/config \$BUCKET_URI
+
+EOF
+chmod u+x /home/agoric/backup_validator_keys.sh
+chown agoric:agoric /home/agoric/backup_validator_keys.sh
+
+# ---- Create restore validator keys from rsync script
+echo "Creating validator keys restore script" | logger
+cat << EOF > /home/agoric/restore_validator_keys.sh
+#!/bin/bash
+set -ex
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+BUCKET_URI="gs://${gcloud_project}-validator-config/config"
+
+# test to see if validator keys exist in the validator-config bucket
+gsutil -q stat \$BUCKET_URI/priv_validator_key.json
 if [ $? -eq 0 ]
 then
-  #validator key exists in bucket
+  #validator keys exists in bucket
   echo "stopping ag0.service" | logger
-  systemctl stop ag0.service
-  echo "downloading validator keys from gs://${gcloud_project}-chaindata-rsync/config" | logger
-  mkdir -p /$WORKING_DIR/.ag0/config
-  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/priv_validator_key.json $WORKING_DIR/.ag0/config/
-  gsutil cp gs://${gcloud_project}-chaindata-rsync/config/node_key.json $WORKING_DIR/.ag0/config/
+  sudo systemctl stop ag0.service
+  echo "downloading validator keys from \$BUCKET_URI" | logger
+  mkdir -vp \$WORKING_DIR/.ag0/config
+  gsutil cp \$BUCKET_URI/priv_validator_key.json \$WORKING_DIR/.ag0/config/
+  gsutil cp \$BUCKET_URI/node_key.json \$WORKING_DIR/.ag0/config/
+  echo "do not forget to restart ag0 after importing keys, with 'systemctl restart ag0'"
   echo "to interactively restore private key from mnemonic, "
   echo "ag-cosmos-helper keys add $KEY_NAME --recover"
-  echo "and then"
-  echo "ag0 init --chain-id ${agoric_node_release_tag} ${validator_name}"
-  
-  echo "do not forget to restart ag0 after importing keys, with 'systemctl start ag0'"
-  #echo "restarting ag0.service" | logger
-  #sleep 3
-  #systemctl start ag0.service
   else
-    echo "No validator keys found in bucket gs://${gcloud_project}-chaindata-rsync, aborting restore" | logger
+    echo "No validator keys found in bucket \$BUCKET_URI, aborting restore" | logger
   fi
 EOF
-chmod u+x /home/agoric/restore_validator_keys_rsync.sh
+chmod u+x /home/agoric/restore_validator_keys.sh
+chown agoric:agoric /home/agoric/restore_validator_keys.sh
 
-# Remove existing chain data
+# Optionally, remove existing chain data.
+# note that ag0 unsafe-reset-all is more cosmonic
 [[ ${reset_chain_data} == "true" ]] && rm -rf $DATA_DIR/data
 
 # ---- Useful aliases ----
@@ -361,52 +375,22 @@ chown agoric:agoric /home/agoric/install_agoric.sh
 echo "Checking out ag0 from github and building it" | logger
 sudo -u agoric /home/agoric/install_agoric.sh
 
-# Create agoric configurator script
-cat << EOF >> /home/agoric/configure_agoric.sh
-#!/bin/bash
-set -ex
+echo "agoric daemon installed" | logger
+sudo -u agoric ag0 version --long | logger
 
-. /home/agoric/.profile
-cd $DATA_DIR
-echo "Moving $DATA_DIR/config/config.toml $DATA_DIR/config/config.toml.bak" | logger
-mv -v $DATA_DIR/config/config.toml $DATA_DIR/config/config.toml.bak
-# First, get the network config for the current network.
-curl ${network_uri}/network-config > chain.json
-# Set chain name to the correct value
-chainName=\`jq -r .chainName < chain.json\`
-chainName=\$(jq -r .chainName < chain.json)
-# Confirm value: should be something like agoricdev-N.
-echo "chainName: \$chainName"
-echo "Removing old genesis (if necessary)"
-rm -fv $DATA_DIR/config/genesis.json 
-ag0 init --chain-id \$chainName ${validator_name}
-# Download the genesis file
-curl ${network_uri}/genesis.json > $DATA_DIR/config/genesis.json 
-# Reset the state of your validator.
-ag0 unsafe-reset-all
-# Set peers variable to the correct value
-peers=\$(jq '.peers | join(",")' < chain.json)
 
-# Set seeds variable to the correct value.
-seeds=\$(jq '.seeds | join(",")' < chain.json)
+echo "Creating new consensus keys by moving node_key.json and priv_validator_key.json to .bak" | logger
+mv -v $DATA_DIR/config/node_key.json $DATA_DIR/config/node_key.json.bak
+mv -v $DATA_DIR/config/priv_validator_key.json $DATA_DIR/config/priv_validator_key.json.bak
+# open question about /home/agoric/.agoric/data/priv_validator_state.json
+echo "NOTE FOR PRODUCTION VALIDATOR USE, YOU MUST RESTORE node_key.json AND priv_validator_key.json from backup and restart ag0" | logger
+echo "/home/agoric/restore_validator_keys.sh will do this for you" | logger
 
-# Confirm values, each should be something like "077c58e4b207d02bbbb1b68d6e7e1df08ce18a8a@178.62.245.23:26656,..."
-echo \$peers
-echo \$seeds
-# Fix `Error: failed to parse log level`
-sed -i.bak 's/^log_level/# log_level/' $DATA_DIR/config/config.toml
-# Replace the seeds and persistent_peers values
-sed -i.bak -e "s/^seeds *=.*/seeds = \$seeds/; s/^persistent_peers *=.*/persistent_peers = \$peers/" $DATA_DIR/config/config.toml
-# set publicly reachable p2p addr in config.toml
-sed -i.bak 's/external_address = ""/#external_address = ""/' $DATA_DIR/config/config.toml
-echo "# external address to advertise to p2p network \n" >> $DATA_DIR/config/config.toml
-echo "external_address = \"tcp://${validator_external_address}:26656\"" >> $DATA_DIR/config/config.toml
-EOF
+echo "Updating moniker to ${validator_name} in config.toml" | logger
+sed -i.bak "s/^moniker = .*/moniker = \"${validator_name}\"/" $DATA_DIR/config/config.toml
 
-chmod u+x /home/agoric/configure_agoric.sh
-chown agoric:agoric /home/agoric/configure_agoric.sh
-echo "Configuring agoric" | logger
-sudo -u agoric /home/agoric/configure_agoric.sh
+echo "Updating external_address to tcp://${validator_external_address}:26656 in config.toml" | logger
+sed -i.bak "s/^external_address = .*/external_address = \"tcp:\/\/${validator_external_address}:26656\"/" $DATA_DIR/config/config.toml
 
 # agoric SDK not yet enabled, so skipping
 #echo "Install and build Agoric Javascript packages" | logger
@@ -420,14 +404,6 @@ sudo -u agoric /home/agoric/configure_agoric.sh
 #echo "testing to see agoric SDK is correctly installed" | logger
 #ag-chain-cosmos version --long
 #ag0 version --long
-
-#backup state file
-#cp $DATA_DIR/data/priv_validator_state.json /root/
-#restore chain data from tarball
-#/root/restore.sh
-# restore state file
-#cp -vf /root/priv_validator_state.json $DATA_DIR/data/priv_validator_state.json
-
 
 echo "Setting up ag0 service in systemd" | logger
 tee <<EOF >/dev/null /etc/systemd/system/ag0.service
@@ -507,9 +483,9 @@ echo "or check stackdriver logs for this instance"
 #./node_exporter &    # fixme do this with systemd, and run as not root!
 
 #--- remove compilers
-echo "Removing compilers and unnecessary packages" | logger
-apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
-apt -y autoremove
+#echo "Removing compilers and unnecessary packages" | logger
+#apt remove -y build-essential gcc make linux-compiler-gcc-8-x86 cpp
+#apt -y autoremove
 
 # ---- Update sudoers to allow agoric user to control the ag0 service
 echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
