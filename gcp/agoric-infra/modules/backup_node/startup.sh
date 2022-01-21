@@ -237,7 +237,8 @@ cat << EOF >> /home/agoric/install_agoric.sh
 set -ex
 
 . /home/agoric/.profile
-cd $DATA_DIR
+cd \$DATA_DIR
+rm -rf \$DATA_DIR/ag0
 git clone ${agoric_node_release_repository} -b ${agoric_node_release_tag} ag0
 cd ag0
 make build
@@ -487,12 +488,13 @@ chmod u+x /home/agoric/backup_snapshot.sh
 # we run this on a dedicated backup node now instead of the attestation service txnode
 cat <<'EOF' > /home/agoric/backup.crontab
 # backup snapshot once a day at 00:57
-57 0 * * * /home/agoric/backup_snapshot.sh > /dev/null 2>&1
+#57 0 * * * /home/agoric/backup_snapshot.sh > /dev/null 2>&1
+57 0 * * * /home/agoric/backup_snapshot.sh 2>&1 | /usr/bin/logger
 # m h  dom mon dow   command
 # backup full tarball once a week at 04:20
-20 4 * * SUN /home/agoric/backup.sh > /dev/null 2>&1
+#20 4 * * SUN /home/agoric/backup.sh > /dev/null 2>&1
 # backup via rsync run once a week at 00:07 past the hour
-07 0 * * SAT /home_agoric/backup_rsync.sh > /dev/null 2>&1
+#07 0 * * SAT /home_agoric/backup_rsync.sh > /dev/null 2>&1
 EOF
 
 # do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
@@ -553,14 +555,10 @@ then
   #chaindata exists in bucket
   echo "stopping agoric p2p/consensus daemon to rsync chaindata" | logger
   sudo $SYSTEMCTL stop ag0.service
-  # do not download validator keys by default (yet)
-  #echo "downloading validator config via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
-  #mkdir -p $WORKING_DIR/config
-  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/config $WORKING_DIR/config
-  echo "downloading validator config via rsync from gs://${gcloud_project}-chaindata-rsync/data" | logger
+  echo "downloading blockchain data via rsync from gs://${gcloud_project}-chaindata-rsync/data" | logger
   mkdir -p $WORKING_DIR/data
   gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data $WORKING_DIR/data
-  echo "restarting ag-chain-cosmos.service" | logger
+  echo "restarting ag0.service" | logger
   sleep 5
   echo "Starting agoric p2p/consensus daemon" | logger
   sudo $SYSTEMCTL start ag0.service
@@ -569,10 +567,10 @@ then
   fi
 EOF
 chmod u+x /home/agoric/restore_rsync.sh
+chown agoric:agoric /home/agoric/restore_rsync.sh
 
 # ---- Update sudoers to allow agoric user to control the ag0 service
 echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
-#zend ALL=(ALL) NOPASSWD: /home/zend/.acme.sh/acme.sh,/bin/systemctl restart 
 cat << 'EOF' >> /etc/sudoers
 agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service,/usr/bin/systemctl status ag0.service
 EOF
