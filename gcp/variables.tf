@@ -16,7 +16,7 @@ variable replicas {
   type        = map(number)
 
   default = {
-    validator           = 0
+    validator           = 1
     backup_node         = 1
   }
 }
@@ -26,9 +26,7 @@ variable instance_types {
   type        = map(string)
 
   default = {
-    #validator           = "t2d-standard-2"  # not available weirdly in us-central1-c
-    validator           = "n2d-standard-2"  
-    #backup_node         = "n2d-standard-1"
+    validator           = "t2d-standard-1"
     backup_node         = "t2d-standard-1"
   }
 }

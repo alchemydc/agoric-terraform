@@ -107,9 +107,8 @@ EOF
 echo "Restarting rsyslogd" | logger
 systemctl restart rsyslog
 
-
-
 # native terraform for install ops-agent isn't working, so workaround
+echo "Installing GCP ops-agent" | logger
 curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh
 bash add-google-cloud-ops-agent-repo.sh --also-install
 
@@ -122,18 +121,13 @@ swapon /swapfile
 swapon -s
 
 # ---- Set Up Persistent Disk ----
-
 # gives a path similar to `/dev/sdb`
 DISK_PATH=$(readlink -f /dev/disk/by-id/google-${attached_disk_name})
 DATA_DIR=/home/agoric/.agoric
-
 echo "Setting up persistent disk ${attached_disk_name} at $DISK_PATH..." | logger
-
 DISK_FORMAT=ext4
 CURRENT_DISK_FORMAT=$(lsblk -i -n -o fstype $DISK_PATH)
-
 echo "Checking if disk $DISK_PATH format $CURRENT_DISK_FORMAT matches desired $DISK_FORMAT..."
-
 # If the disk has already been formatted previously (this will happen
 # if this instance has been recreated with the same disk), we skip formatting
 if [[ $CURRENT_DISK_FORMAT == $DISK_FORMAT ]]; then
@@ -142,7 +136,6 @@ else
   echo "Disk $DISK_PATH is not formatted correctly, formatting as $DISK_FORMAT..."
   mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard $DISK_PATH
 fi
-
 # Mounting the volume
 echo "Mounting $DISK_PATH onto $DATA_DIR" | logger
 mkdir -vp $DATA_DIR
@@ -155,129 +148,12 @@ echo "Adding agoric user" | logger
 useradd -m agoric -s /bin/bash
 
 # set perms on datadir for agoric user
+echo "Adding setting perms on agoric user's home dir" | logger
 chown -R agoric:agoric /home/agoric
 
 # set perms on datadir for agoric user
+echo "Adding setting perms on $DATA_DIR" | logger
 chown -R agoric:agoric $DATA_DIR
-
-# ---- Create chaindata restore script
-echo "Creating chaindata restore script" | logger
-cat <<'EOF' > /home/agoric/restore_chaindata.sh
-#!/bin/bash
-set -ex
-
-WORKING_DIR='/home/agoric/.agoric'
-SYSTEMCTL='/usr/bin/systemctl'
-
-echo "Starting chaindata restore from GCS tarball" | logger
-
-## test to see if chaindata exists in bucket
-echo "Checking for presence of chaindata tarball in GCS" | logger
-gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
-if [ $? -eq 0 ]
-then
-  #chaindata exists in bucket
-  echo "Found chaindata tarball in GCS" | logger
-  mkdir -p $WORKING_DIR/restore
-  mkdir -p $WORKING_DIR/data  
-  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
-  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
-  echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
-  sudo $SYSTEMCTL stop ag0.service
-  sleep 5
-  echo "untarring chaindata" | logger
-  tar zxvf $WORKING_DIR/restore/chaindata.tgz --directory $WORKING_DIR
-  echo "removing chaindata tarball" | logger
-  rm -rf $WORKING_DIR/restore/chaindata.tgz
-  sleep 5
-  echo "Starting agoric p2p/consensus daemon" | logger
-  sudo $SYSTEMCTL start ag0.service
-  else
-    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting restore" | logger
-  fi
-EOF
-chown agoric:agoric /home/agoric/restore_chaindata.sh
-chmod u+x /home/agoric/restore_chaindata.sh
-
-# ---- Create rsync chaindata restore script
-echo "Creating rsync chaindata restore script" | logger
-cat <<'EOF' > /home/agoric/restore_rsync.sh
-#!/bin/bash
-set -x
-
-WORKING_DIR='/home/agoric/.agoric'
-SYSTEMCTL='/usr/bin/systemctl'
-
-# test to see if chaindata exists in the rsync chaindata bucket
-gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
-if [ $? -eq 0 ]
-then
-  #chaindata exists in bucket
-  echo "stopping agoric p2p/consensus daemon to rsync chaindata" | logger
-  sudo $SYSTEMCTL stop ag0.service
-  # do not download validator keys by default (yet)
-  #echo "downloading validator config via rsync from gs://${gcloud_project}-chaindata-rsync/config" | logger
-  #mkdir -p $WORKING_DIR/config
-  #gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/config $WORKING_DIR/config
-  echo "downloading validator config via rsync from gs://${gcloud_project}-chaindata-rsync/data" | logger
-  mkdir -p $WORKING_DIR/data
-  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data $WORKING_DIR/data
-  echo "restarting ag-chain-cosmos.service" | logger
-  sleep 5
-  echo "Starting agoric p2p/consensus daemon" | logger
-  sudo $SYSTEMCTL start ag0.service
-  else
-    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
-  fi
-EOF
-chmod u+x /home/agoric/restore_rsync.sh
-
-
-# ---- Create backup validator keys to GCS/rsync script
-echo "Creating validator keys backup script" | logger
-cat << EOF > /home/agoric/backup_validator_keys.sh
-#!/bin/bash
-set -ex
-
-WORKING_DIR='/home/agoric/.agoric'
-SYSTEMCTL='/usr/bin/systemctl'
-BUCKET_URI="gs://${gcloud_project}-validator-config/"
-
-# unclear whether or not ag0 needs to be stopped to back these keys up properly
-gsutil -m cp -vr \$WORKING_DIR/config \$BUCKET_URI
-
-EOF
-chmod u+x /home/agoric/backup_validator_keys.sh
-chown agoric:agoric /home/agoric/backup_validator_keys.sh
-
-# ---- Create restore validator keys from rsync script
-echo "Creating validator keys restore script" | logger
-cat << EOF > /home/agoric/restore_validator_keys.sh
-#!/bin/bash
-set -ex
-
-WORKING_DIR='/home/agoric/.agoric/config'
-SYSTEMCTL='/usr/bin/systemctl'
-BUCKET_URI="gs://${gcloud_project}-validator-config/config"
-
-# test to see if validator keys exist in the validator-config bucket
-gsutil -q stat \$BUCKET_URI/priv_validator_key.json
-if [ $? -eq 0 ]
-then
-  #validator keys exists in bucket
-  echo "downloading validator keys from \$BUCKET_URI" | logger
-  mkdir -vp \$WORKING_DIR
-  gsutil cp \$BUCKET_URI/priv_validator_key.json \$WORKING_DIR/
-  gsutil cp \$BUCKET_URI/node_key.json \$WORKING_DIR/
-  echo "do not forget to restart ag0 after importing keys, with 'systemctl restart ag0'"
-  echo "to interactively restore private key from mnemonic: "
-  echo "ag0 keys add [KEY_NAME] --recover"
-  else
-    echo "No validator keys found in bucket \$BUCKET_URI, aborting restore" | logger
-  fi
-EOF
-chmod u+x /home/agoric/restore_validator_keys.sh
-chown agoric:agoric /home/agoric/restore_validator_keys.sh
 
 # Optionally, remove existing chain data.
 # note that ag0 unsafe-reset-all is more cosmonic
@@ -287,6 +163,17 @@ chown agoric:agoric /home/agoric/restore_validator_keys.sh
 echo "Configuring aliases" | logger
 echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
 echo "alias ll='ls -laF'" >> /root/.bashrc
+echo "alias ll='ls -laF'" >> /home/agoric/.bashrc
+echo "alias peers='curl -s 127.0.0.1:26657/net_info | grep n_peers'" >> /home/agoric/.bashrc
+echo "alias agstatus='ag0 status | jq .'" >> /home/agoric/.bashrc
+
+# fix vim
+echo "Configuring vim" | logger
+cat <<'EOF' >> '/etc/vim/vimrc.local'
+set mouse-=a
+syntax on
+set background=dark
+EOF
 
 # ---- Config /etc/screenrc ----
 echo "Configuring /etc/screenrc" | logger
@@ -306,62 +193,60 @@ EOF
 
 # FIXME:parameterize these as variables and expose properly via terraform
 # presently used for local firewall rules, which really should be controlled by variables
-AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
-AGORIC_PROMETHEUS_IP="142.93.181.215"
-
+#AGORIC_PROMETHEUS_HOSTNAME="prometheus.testnet.agoric.net"
+#AGORIC_PROMETHEUS_IP="142.93.181.215"
 #AGORIC_PROMETHEUS_IP=`$AGORIC_PROMETHEUS_HOSTNAME | cut -d ' ' -f 4`
 # following will expose Agoric VM (SwingSet) metrics globally on tcp/94643
 # see https://github.com/Agoric/agoric-sdk/blob/master/packages/cosmic-swingset/README-telemetry.md for more info
-OTEL_EXPORTER_PROMETHEUS_PORT=9464
+#OTEL_EXPORTER_PROMETHEUS_PORT=9464
 
-
-# skipping all the js stuff as mainnet phase 0 is just the cosmos L1
-# refresh packages and update all
-apt update && apt upgrade -y
-
+# agoric SDK dependencies and installing disabled pending mainnet phase 1
 # Download the nodesource PPA for Node.js
 #echo "Installing nodejs and yarn" | logger
-#curl https://deb.nodesource.com/setup_14.x |  bash
+#curl https://deb.nodesource.com/setup_12.x |  bash
 
 # Download the Yarn repository configuration
 # See instructions on https://legacy.yarnpkg.com/en/docs/install/
-#curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - 
+#curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
 #echo "deb https://dl.yarnpkg.com/debian/ stable main" |  tee /etc/apt/sources.list.d/yarn.list
-# FIXME: Warning: apt-key is deprecated. Manage keyring files in trusted.gpg.d instead (see apt-key(8))."
 
 # Update Ubuntu to pickup the yarn repo
 #apt update
 
 # Install Node.js, Yarn, and build tools
 # Install jq for formatting of JSON data
-# skipping node until agoric SDK is live on mainnet0
-#apt install nodejs=14.* yarn build-essential jq git nftables -y
+#apt install nodejs=12.* yarn build-essential jq git nftables -y
+# build essential is required for both the Cosmos golang SDK base layer as well as the Agoric SDK
 apt install build-essential jq git nftables -y
 
-# First remove any existing old Go installation
- rm -rf /usr/local/go
-
 # Install correct Go version
+# First remove any existing old Go installation
+rm -rf /usr/local/go
 echo "installing golang" | logger
 curl https://dl.google.com/go/go1.15.7.linux-amd64.tar.gz |  tar -C/usr/local -zxvf -
 
 # Update environment variables to include go
+echo "Creating .profile for agoric user to put go in path" | logger
 cat <<'EOF' >> /home/agoric/.profile
 export GOROOT=/usr/local/go
-export GOPATH=/home/agoric/go
+export GOPATH=$HOME/go
 export GO111MODULE=on
-export PATH=$PATH:/usr/local/go/bin:/home/agoric/go/bin
-alias ll='ls -laF'
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
 EOF
 chown agoric:agoric /home/agoric/.profile
 
 # Create agoric install script
+# note that EOF is *not* quoted here so that the bash env variables will get expanded
+# terraform env vars *are* expanded even when using 'cat << 'EOF' .... 
+
+echo "Creating /home/agoric/install_agoric.sh" | logger
 cat << EOF >> /home/agoric/install_agoric.sh
 #!/bin/bash
-set -x
+set -ex
 
 . /home/agoric/.profile
-cd $DATA_DIR
+cd \$DATA_DIR
+rm -rf \$DATA_DIR/ag0
 git clone ${agoric_node_release_repository} -b ${agoric_node_release_tag} ag0
 cd ag0
 make build
@@ -370,18 +255,17 @@ EOF
 
 chmod u+x /home/agoric/install_agoric.sh
 chown agoric:agoric /home/agoric/install_agoric.sh
-echo "Checking out ag0 from github and building it" | logger
+
+echo "Running /home/agoric/install_agoric.sh, which checks out ag0 from github and builds it" | logger
 sudo -u agoric /home/agoric/install_agoric.sh
 
-echo "agoric daemon installed" | logger
-sudo -u agoric ag0 version --long | logger
-
+echo "agoric ag0 installed" | logger
+sudo -u agoric -i ag0 version --long | logger
 
 echo "Creating new consensus keys by moving node_key.json and priv_validator_key.json to .bak" | logger
-mv -v $DATA_DIR/config/node_key.json $DATA_DIR/config/node_key.json.bak
-mv -v $DATA_DIR/config/priv_validator_key.json $DATA_DIR/config/priv_validator_key.json.bak
-# open question about /home/agoric/.agoric/data/priv_validator_state.json
-echo "NOTE FOR PRODUCTION VALIDATOR USE, YOU MUST RESTORE node_key.json AND priv_validator_key.json from backup and restart ag0" | logger
+mv -v $DATA_DIR/config/node_key.json $DATA_DIR/config/node_key.json.from_snapshot
+mv -v $DATA_DIR/config/priv_validator_key.json $DATA_DIR/config/priv_validator_key.json.from_snapshot
+echo "NOTE FOR PRODUCTION VALIDATOR USE, YOU MUST RESTORE config/node_key.json AND config/priv_validator_key.json AND data/priv_validator_state.json from backup and restart ag0" | logger
 echo "/home/agoric/restore_validator_keys.sh will do this for you" | logger
 
 echo "Updating moniker to ${validator_name} in config.toml" | logger
@@ -491,3 +375,122 @@ echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
 cat << 'EOF' >> /etc/sudoers
 agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service,/usr/bin/systemctl status ag0.service
 EOF
+
+# ---- Create chaindata restore script
+echo "Creating chaindata restore script" | logger
+cat <<'EOF' > /home/agoric/restore_chaindata.sh
+#!/bin/bash
+set -ex
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+
+echo "Starting chaindata restore from GCS tarball" | logger
+
+## test to see if chaindata exists in bucket
+echo "Checking for presence of chaindata tarball in GCS" | logger
+gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
+if [ $? -eq 0 ]
+then
+  #chaindata exists in bucket
+  echo "Found chaindata tarball in GCS" | logger
+  mkdir -p $WORKING_DIR/restore
+  mkdir -p $WORKING_DIR/data  
+  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
+  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
+  echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
+  sudo $SYSTEMCTL stop ag0.service
+  sleep 5
+  echo "untarring chaindata" | logger
+  tar zxvf $WORKING_DIR/restore/chaindata.tgz --directory $WORKING_DIR
+  echo "removing chaindata tarball" | logger
+  rm -rf $WORKING_DIR/restore/chaindata.tgz
+  sleep 5
+  echo "Starting agoric p2p/consensus daemon" | logger
+  sudo $SYSTEMCTL start ag0.service
+  else
+    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting restore" | logger
+  fi
+EOF
+chown agoric:agoric /home/agoric/restore_chaindata.sh
+chmod u+x /home/agoric/restore_chaindata.sh
+
+# ---- Create rsync chaindata restore script
+echo "Creating rsync chaindata restore script" | logger
+cat <<'EOF' > /home/agoric/restore_rsync.sh
+#!/bin/bash
+set -x
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+
+# test to see if chaindata exists in the rsync chaindata bucket
+gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
+if [ $? -eq 0 ]
+then
+  #chaindata exists in bucket
+  echo "stopping agoric p2p/consensus daemon to rsync chaindata" | logger
+  sudo $SYSTEMCTL stop ag0.service
+  # do not download validator keys by default (yet)
+  echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/data" | logger
+  mkdir -p $WORKING_DIR/data
+  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data $WORKING_DIR/data
+  echo "restarting ag0" | logger
+  sleep 5
+  echo "Starting agoric p2p/consensus daemon" | logger
+  sudo $SYSTEMCTL start ag0.service
+  else
+    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting rsync restore" | logger
+  fi
+EOF
+chmod u+x /home/agoric/restore_rsync.sh
+
+
+# ---- Create backup validator keys script to GCS/rsync script
+echo "Creating validator keys and config backup script" | logger
+cat << 'EOF' > '/home/agoric/backup_validator_keys.sh'
+#!/bin/bash
+set -ex
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+BUCKET_URI="gs://${gcloud_project}-validator-config/"
+
+# unclear whether or not ag0 needs to be stopped to back these keys up properly
+gsutil -m cp -vr $WORKING_DIR/config $BUCKET_URI
+gsutil -m cp -vr $WORKING_DIR/data/priv_validator_state.json $BUCKET_URI
+EOF
+chmod u+x /home/agoric/backup_validator_keys.sh
+chown agoric:agoric /home/agoric/backup_validator_keys.sh
+
+# ---- Create restore validator keys from rsync script
+echo "Creating validator keys restore script" | logger
+cat << 'EOF' > '/home/agoric/restore_validator_keys.sh'
+#!/bin/bash
+set -ex
+
+WORKING_DIR='/home/agoric/.agoric'
+SYSTEMCTL='/usr/bin/systemctl'
+BUCKET_URI="gs://${gcloud_project}-validator-config"
+
+# test to see if validator keys exist in the validator-config bucket
+gsutil -q stat $BUCKET_URI/config/priv_validator_key.json
+if [ $? -eq 0 ]
+then
+  #validator keys exists in bucket
+  echo "backing up existing validator keys..." | logger
+  mkdir $WORKING_DIR/validator_backup
+  tar zcvf $WORKING_DIR/validator_backup/validator_backup_$(date +%F_%R) $WORKING_DIR/config/priv_validator_key.json $WORKING_DIR/config/node_key.json $WORKING_DIR/data/priv_validator_state.json
+  echo "downloading validator keys from $BUCKET_URI" | logger
+  mkdir -vp $WORKING_DIR/config
+  mkdir -vp $WORKING_DIR/data
+  gsutil cp $BUCKET_URI/config/priv_validator_key.json $WORKING_DIR/config/
+  gsutil cp $BUCKET_URI/config/node_key.json $WORKING_DIR/config/
+  gsutil cp $BUCKET_URI/data/priv_validator_state.json $WORKING_DIR/data/
+  echo "do not forget to restart ag0 after importing keys, with 'systemctl restart ag0'"
+  else
+    echo "No validator keys found in bucket $BUCKET_URI, aborting restore" | logger
+  fi
+EOF
+chmod u+x /home/agoric/restore_validator_keys.sh
+chown agoric:agoric /home/agoric/restore_validator_keys.sh

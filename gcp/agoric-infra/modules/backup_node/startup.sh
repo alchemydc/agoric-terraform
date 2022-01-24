@@ -98,10 +98,10 @@ kern.*                          -/var/log/kern.log
 # Emergencies are sent to everybody logged in.
 #
 *.emerg                         :omusrmsg:*
+#
+# render ANSI color codes properly
 $EscapeControlCharactersOnReceive off
 EOF
-
-
 
 # ---- Restart rsyslogd
 echo "Restarting rsyslogd" | logger
@@ -120,8 +120,6 @@ mkswap /swapfile
 swapon /swapfile
 swapon -s
 
-
-
 # ---- Set Up Persistent Disk ----
 # gives a path similar to `/dev/sdb`
 DISK_PATH=$(readlink -f /dev/disk/by-id/google-${attached_disk_name})
@@ -130,7 +128,6 @@ echo "Setting up persistent disk ${attached_disk_name} at $DISK_PATH..." | logge
 DISK_FORMAT=ext4
 CURRENT_DISK_FORMAT=$(lsblk -i -n -o fstype $DISK_PATH)
 echo "Checking if disk $DISK_PATH format $CURRENT_DISK_FORMAT matches desired $DISK_FORMAT..."
-
 # If the disk has already been formatted previously (this will happen
 # if this instance has been recreated with the same disk), we skip formatting
 if [[ $CURRENT_DISK_FORMAT == $DISK_FORMAT ]]; then
@@ -139,7 +136,6 @@ else
   echo "Disk $DISK_PATH is not formatted correctly, formatting as $DISK_FORMAT..."
   mkfs.ext4 -m 0 -F -E lazy_itable_init=0,lazy_journal_init=0,discard $DISK_PATH
 fi
-
 # Mounting the volume
 echo "Mounting $DISK_PATH onto $DATA_DIR" | logger
 mkdir -p $DATA_DIR
@@ -159,13 +155,25 @@ chown -R agoric:agoric /home/agoric
 echo "Adding setting perms on $DATA_DIR" | logger
 chown -R agoric:agoric $DATA_DIR
 
-# Remove existing chain data
+# Optionally, remove existing chain data.
+# note that ag0 unsafe-reset-all is more cosmonic
 [[ ${reset_chain_data} == "true" ]] && echo "Removing existing blockchain data" | logger && rm -rf $DATA_DIR/data
 
 # ---- Useful aliases ----
 echo "Configuring aliases" | logger
 echo "alias ll='ls -laF'" >> /etc/skel/.bashrc
 echo "alias ll='ls -laF'" >> /root/.bashrc
+echo "alias ll='ls -laF'" >> /home/agoric/.bashrc
+echo "alias peers='curl -s 127.0.0.1:26657/net_info | grep n_peers'" >> /home/agoric/.bashrc
+echo "alias agstatus='ag0 status | jq .'" >> /home/agoric/.bashrc
+
+# fix vim
+echo "Configuring vim" | logger
+cat <<'EOF' >> '/etc/vim/vimrc.local'
+set mouse-=a
+syntax on
+set background=dark
+EOF
 
 # ---- Config /etc/screenrc ----
 echo "Configuring /etc/screenrc" | logger
@@ -275,6 +283,7 @@ if [ -e "\$DATA_DIR/data/blockstore.db" ]; then
   exit 0;
 fi
 
+# no chaindata found on disk, so perform a fresh init and configure
 # First, get the network config for the current network.
 curl ${network_uri}/network-config > chain.json
 # Set chain name to the correct value
@@ -401,9 +410,15 @@ echo "install completed, chain syncing" | logger
 echo "for sync status: ag0 status | jq .SyncInfo"
 echo "or check stackdriver logs for this instance"
 
-# ---- Create backup script
-echo "Creating chaindata backup script" | logger
-cat <<'EOF' > /home/agoric/backup_chaindata.sh
+# ---- Update sudoers to allow agoric user to control the ag0 service
+echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
+cat << 'EOF' >> /etc/sudoers
+agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service,/usr/bin/systemctl status ag0.service
+EOF
+
+# ---- Create chaindata tarball backup script
+echo "Creating chaindata tarball backup script" | logger
+cat <<'EOF' > /home/agoric/backup_chaindata_tarball.sh
 #!/bin/bash
 # This script stops the agoric cosmos ag0 p2p/consensus daemon, tars up the chaindata (with gzip compression), and copies it to GCS.
 # The 'chaindata' GCS bucket has versioning enabled, so if a corrupted tarball is uploaded, an older version can be selected for restore.
@@ -434,12 +449,12 @@ echo "Chaindata backup completed" | logger
 sleep 3
 sudo $SYSTEMCTL start ag0.service
 EOF
-chown agoric:agoric /home/agoric/backup_chaindata.sh
-chmod u+x /home/agoric/backup_chaindata.sh
+chown agoric:agoric /home/agoric/backup_chaindata_tarball.sh
+chmod u+x /home/agoric/backup_chaindata_tarball.sh
 
-# ---- Create rsync backup script
-echo "Creating rsync chaindata backup script" | logger
-cat <<'EOF' > /home/agoric/backup_rsync.sh
+# ---- Create chaindata rsync backup script
+echo "Creating chaindata rsync backup script" | logger
+cat <<'EOF' > /home/agoric/backup_chaindata_rsync.sh
 #!/bin/bash
 # This script stops agoric p2p/consensus daemon, and uses rsync to copy chaindata to GCS.
 set -x
@@ -456,14 +471,14 @@ echo "rsync chaindata backup completed" | logger
 sleep 3
 sudo $SYSTEMCTL start ag0.service
 EOF
-chown agoric:agoric /home/agoric/backup_rsync.sh
-chmod u+x /home/agoric/backup_rsync.sh
+chown agoric:agoric /home/agoric/backup_chaindata_rsync.sh
+chmod u+x /home/agoric/backup_chaindata_rsync.sh
 
 # ----- Create snapshot backup script
 cat << EOF > /home/agoric/backup_snapshot.sh
 #!/bin/bash
 # This script stops ag0, deletes snapshots from GCS, and then snapshots the
-# disk containing the chaindata
+# persistent disk containing the chaindata (and configuration!)
 set -x
 
 SYSTEMCTL='/usr/bin/systemctl'
@@ -484,25 +499,26 @@ chown agoric:agoric /home/agoric/backup_snapshot.sh
 chmod u+x /home/agoric/backup_snapshot.sh
 
 # ---- Add backups to cron
-# note that this will make the backup_node geth unavailable during the backup, which is why
-# we run this on a dedicated backup node now instead of the attestation service txnode
+# note that this will make the backup_node ag0 unavailable during the backup, which is why
+# we run this on a dedicated backup node now 
 cat <<'EOF' > /home/agoric/backup.crontab
 # backup snapshot once a day at 00:57
-#57 0 * * * /home/agoric/backup_snapshot.sh > /dev/null 2>&1
 57 0 * * * /home/agoric/backup_snapshot.sh 2>&1 | /usr/bin/logger
 # m h  dom mon dow   command
+# full tarball is unwieldy, so is now run only manually as required
 # backup full tarball once a week at 04:20
-#20 4 * * SUN /home/agoric/backup.sh > /dev/null 2>&1
+#20 4 * * SUN /home/agoric/backup_chaindata_tarball.sh > /dev/null 2>&1
 # backup via rsync run once a week at 00:07 past the hour
-#07 0 * * SAT /home_agoric/backup_rsync.sh > /dev/null 2>&1
+07 0 * * SAT /home/agoric/backup_chaindata_rsync.sh > /dev/null 2>&1
 EOF
 
 # do NOT enable crontab on the validator itself.  we'll want to run this from the backup node
+# disabled temporarily for testing
 #sudo -u agoric /usr/bin/crontab /home/agoric/backup.crontab
 
-# ---- Create restore script
-echo "Creating chaindata restore script" | logger
-cat <<'EOF' > /home/agoric/restore_chaindata.sh
+# ---- Create restore chaindata from tarball script
+echo "Creating chaindata tarball restore script" | logger
+cat <<'EOF' > /home/agoric/restore_chaindata_tarball.sh
 #!/bin/bash
 set -ex
 
@@ -536,12 +552,12 @@ then
     echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting restore" | logger
   fi
 EOF
-chown agoric:agoric /home/agoric/restore_chaindata.sh
-chmod u+x /home/agoric/restore_chaindata.sh
+chown agoric:agoric /home/agoric/restore_chaindata_tarball.sh
+chmod u+x /home/agoric/restore_chaindata_tarball.sh
 
-# ---- Create rsync restore script
+# ---- Create rsync chaindata restore script
 echo "Creating rsync chaindata restore script" | logger
-cat <<'EOF' > /home/agoric/restore_rsync.sh
+cat <<'EOF' > /home/agoric/restore_chaindata_rsync.sh
 #!/bin/bash
 set -x
 
@@ -566,11 +582,7 @@ then
     echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
   fi
 EOF
-chmod u+x /home/agoric/restore_rsync.sh
-chown agoric:agoric /home/agoric/restore_rsync.sh
+chmod u+x /home/agoric/restore_chaindata_rsync.sh
+chown agoric:agoric /home/agoric/restore_chaindata_rsync.sh
 
-# ---- Update sudoers to allow agoric user to control the ag0 service
-echo "Updating sudoers to allow agoric user to control the ag0 service" | logger
-cat << 'EOF' >> /etc/sudoers
-agoric ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ag0.service,/usr/bin/systemctl stop ag0.service,/usr/bin/systemctl start ag0.service,/usr/bin/systemctl status ag0.service
-EOF
+
