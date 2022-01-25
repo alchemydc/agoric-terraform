@@ -1,327 +1,377 @@
 {
   "displayName": "HUD",
-  "gridLayout": {
-    "columns": "2",
-    "widgets": [
+  "mosaicLayout": {
+    "columns": 12,
+    "tiles": [
       {
-        "title": "Blocks Signed",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_DELTA"
-                  },
-                  "filter": "metric.type=\"logging.googleapis.com/user/tf_eth_block_signed\" resource.type=\"gce_instance\" metadata.user_labels.\"rc1-validator\"=\"\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "1"
-              }
-            }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
-          }
-        }
-      },
-      {
-        "title": "Blocks Mined",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_DELTA"
-                  },
-                  "filter": "metric.type=\"logging.googleapis.com/user/tf_eth_block_signed\" resource.type=\"gce_instance\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "1"
-              }
-            }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
-          }
-        }
-      },
-      {
-        "title": "Memory Free",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_MEAN"
-                  },
-                  "filter": "metric.type=\"agent.googleapis.com/memory/percent_used\" resource.type=\"gce_instance\" metric.label.\"state\"=\"free\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "%"
-              }
-            }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
-          }
-        }
-      },
-      {
-        "title": "CPU",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_MEAN"
-                  },
-                  "filter": "metric.type=\"agent.googleapis.com/cpu/load_1m\" resource.type=\"gce_instance\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "1"
-              }
-            }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
-          }
-        }
-      },
-      {
-        "title": "Network",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_RATE"
-                  },
-                  "filter": "metric.type=\"compute.googleapis.com/instance/network/sent_bytes_count\" resource.type=\"gce_instance\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "By"
-              }
+        "height": 4,
+        "widget": {
+          "title": "CPU utilization",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
             },
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_RATE"
-                  },
-                  "filter": "metric.type=\"compute.googleapis.com/instance/network/received_bytes_count\" resource.type=\"gce_instance\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "By"
+            "dataSets": [
+              {
+                "minAlignmentPeriod": "60s",
+                "plotType": "STACKED_AREA",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    },
+                    "filter": "metric.type=\"compute.googleapis.com/instance/cpu/utilization\" resource.type=\"gce_instance\""
+                  }
+                }
               }
+            ],
+            "timeshiftDuration": "0s",
+            "yAxis": {
+              "label": "y1Axis",
+              "scale": "LINEAR"
             }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
           }
-        }
+        },
+        "width": 6,
+        "yPos": 4
       },
       {
-        "title": "Blocks Ingested",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "crossSeriesReducer": "REDUCE_PERCENTILE_99",
-                    "perSeriesAligner": "ALIGN_SUM"
-                  },
-                  "filter": "metric.type=\"logging.googleapis.com/user/tf_eth_blocks_ingested\" resource.type=\"gce_instance\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "blocks"
-              }
-            }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
-          }
-        }
-      },
-      {
-        "title": "Eth Handshakes Failed",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_RATE"
-                  },
-                  "filter": "metric.type=\"logging.googleapis.com/user/tf_eth_handshake_failed\" resource.type=\"gce_instance\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "1"
-              }
-            }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
-          }
-        }
-      },
-      {
-        "title": "Genesis Mismatches",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_RATE"
-                  },
-                  "filter": "metric.type=\"logging.googleapis.com/user/tf_eth_genesis_mismatch\" resource.type=\"gce_instance\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "1"
-              }
-            }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
-          }
-        }
-      },
-      {
-        "title": "Disk Usage",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_MEAN"
-                  },
-                  "filter": "metric.type=\"agent.googleapis.com/disk/percent_used\" resource.type=\"gce_instance\" metric.label.\"state\"=\"used\" metric.label.\"device\"!=\"overlay\" metric.label.\"device\"!=\"tmpfs\" metric.label.\"device\"!=\"tmpfs\" metric.label.\"device\"!=\"udev\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "%"
-              }
-            }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
-          }
-        }
-      },
-      {
-        "title": "Disk I/O",
-        "xyChart": {
-          "chartOptions": {
-            "mode": "COLOR"
-          },
-          "dataSets": [
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_RATE"
-                  },
-                  "filter": "metric.type=\"compute.googleapis.com/instance/disk/read_bytes_count\" resource.type=\"gce_instance\"",
-                  "secondaryAggregation": {}
-                },
-                "unitOverride": "By"
-              }
+        "height": 4,
+        "widget": {
+          "title": "Disk Utilization",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
             },
-            {
-              "minAlignmentPeriod": "60s",
-              "plotType": "LINE",
-              "timeSeriesQuery": {
-                "timeSeriesFilter": {
-                  "aggregation": {
-                    "perSeriesAligner": "ALIGN_RATE"
-                  },
-                  "filter": "metric.type=\"compute.googleapis.com/instance/disk/write_bytes_count\" resource.type=\"gce_instance\"",
-                  "secondaryAggregation": {}
+            "dataSets": [
+              {
+                "minAlignmentPeriod": "60s",
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    },
+                    "filter": "metric.type=\"agent.googleapis.com/disk/percent_used\" resource.type=\"gce_instance\" metric.label.\"state\"=\"used\""
+                  }
+                }
+              }
+            ],
+            "timeshiftDuration": "0s",
+            "yAxis": {
+              "label": "y1Axis",
+              "scale": "LINEAR"
+            }
+          }
+        },
+        "width": 6,
+        "yPos": 8
+      },
+      {
+        "height": 4,
+        "widget": {
+          "title": "Blocks Executed",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "minAlignmentPeriod": "60s",
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "metric.type=\"logging.googleapis.com/user/tf_executed_block\" resource.type=\"gce_instance\" metadata.user_labels.\"role\"=\"validator\"",
+                    "secondaryAggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    }
+                  }
+                }
+              }
+            ],
+            "timeshiftDuration": "0s",
+            "yAxis": {
+              "label": "y1Axis",
+              "scale": "LINEAR"
+            }
+          }
+        },
+        "width": 6
+      },
+      {
+        "height": 4,
+        "widget": {
+          "title": "Validator Swap I/O",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "minAlignmentPeriod": "60s",
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "metric.type=\"agent.googleapis.com/swap/io\" resource.type=\"gce_instance\" metadata.user_labels.\"role\"=\"validator\"",
+                    "secondaryAggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    }
+                  }
+                }
+              }
+            ],
+            "timeshiftDuration": "0s",
+            "yAxis": {
+              "label": "y1Axis",
+              "scale": "LINEAR"
+            }
+          }
+        },
+        "width": 6,
+        "xPos": 6
+      },
+      {
+        "height": 2,
+        "widget": {
+          "scorecard": {
+            "gaugeView": {
+              "upperBound": 100.0
+            },
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "aggregation": {
+                  "alignmentPeriod": "60s",
+                  "crossSeriesReducer": "REDUCE_MEAN",
+                  "perSeriesAligner": "ALIGN_MEAN"
                 },
-                "unitOverride": "By"
+                "filter": "metric.type=\"agent.googleapis.com/disk/percent_used\" resource.type=\"gce_instance\" metadata.user_labels.\"role\"=\"validator\" metric.label.\"state\"=\"used\" metric.label.\"device\"=\"/dev/sda1\""
               }
             }
-          ],
-          "timeshiftDuration": "0s",
-          "yAxis": {
-            "label": "y1Axis",
-            "scale": "LINEAR"
+          },
+          "title": "Validator Boot Disk Utilization"
+        },
+        "width": 3,
+        "xPos": 6,
+        "yPos": 4
+      },
+      {
+        "height": 2,
+        "widget": {
+          "scorecard": {
+            "gaugeView": {
+              "upperBound": 100.0
+            },
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "aggregation": {
+                  "alignmentPeriod": "60s",
+                  "crossSeriesReducer": "REDUCE_MEAN",
+                  "perSeriesAligner": "ALIGN_MEAN"
+                },
+                "filter": "metric.type=\"agent.googleapis.com/disk/percent_used\" resource.type=\"gce_instance\" metadata.user_labels.\"role\"=\"validator\" metric.label.\"state\"=\"used\" metric.label.\"device\"=\"/dev/sdb\""
+              }
+            }
+          },
+          "title": "Validator Data Disk Utilization"
+        },
+        "width": 3,
+        "xPos": 6,
+        "yPos": 6
+      },
+      {
+        "height": 2,
+        "widget": {
+          "scorecard": {
+            "gaugeView": {
+              "upperBound": 100.0
+            },
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "aggregation": {
+                  "alignmentPeriod": "60s",
+                  "crossSeriesReducer": "REDUCE_MEAN",
+                  "perSeriesAligner": "ALIGN_MEAN"
+                },
+                "filter": "metric.type=\"agent.googleapis.com/swap/percent_used\" resource.type=\"gce_instance\" metadata.user_labels.\"role\"=\"validator\" metric.label.\"state\"=\"used\""
+              }
+            }
+          },
+          "title": "Validator Swap Utilization"
+        },
+        "width": 3,
+        "xPos": 9,
+        "yPos": 4
+      },
+      {
+        "height": 4,
+        "widget": {
+          "title": "Validator Network Traffic",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "minAlignmentPeriod": "60s",
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "metric.type=\"agent.googleapis.com/interface/traffic\" resource.type=\"gce_instance\" metadata.user_labels.\"role\"=\"validator\"",
+                    "secondaryAggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    }
+                  }
+                }
+              }
+            ],
+            "timeshiftDuration": "0s",
+            "yAxis": {
+              "label": "y1Axis",
+              "scale": "LINEAR"
+            }
           }
-        }
+        },
+        "width": 6,
+        "xPos": 6,
+        "yPos": 8
+      },
+      {
+        "height": 4,
+        "widget": {
+          "title": "Inbound Peer Auth Failures",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "minAlignmentPeriod": "60s",
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "metric.type=\"logging.googleapis.com/user/tf_inbound_peer_rejected_auth_failure\" resource.type=\"gce_instance\"",
+                    "secondaryAggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    }
+                  }
+                }
+              }
+            ],
+            "timeshiftDuration": "0s",
+            "yAxis": {
+              "label": "y1Axis",
+              "scale": "LINEAR"
+            }
+          }
+        },
+        "width": 6,
+        "yPos": 12
+      },
+      {
+        "height": 4,
+        "widget": {
+          "title": "Consensus Timeouts",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "minAlignmentPeriod": "60s",
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "metric.type=\"logging.googleapis.com/user/tf_consensus_timeouts\" resource.type=\"gce_instance\"",
+                    "secondaryAggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    }
+                  }
+                }
+              }
+            ],
+            "timeshiftDuration": "0s",
+            "yAxis": {
+              "label": "y1Axis",
+              "scale": "LINEAR"
+            }
+          }
+        },
+        "width": 6,
+        "xPos": 6,
+        "yPos": 12
+      },
+      {
+        "height": 4,
+        "widget": {
+          "title": "Inbound Peers Filtered",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "minAlignmentPeriod": "60s",
+                "plotType": "LINE",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_RATE"
+                    },
+                    "filter": "metric.type=\"logging.googleapis.com/user/tf_inbound_peer_rejected_filtered\" resource.type=\"gce_instance\"",
+                    "secondaryAggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    }
+                  }
+                }
+              }
+            ],
+            "timeshiftDuration": "0s",
+            "yAxis": {
+              "label": "y1Axis",
+              "scale": "LINEAR"
+            }
+          }
+        },
+        "width": 6,
+        "yPos": 16
       }
     ]
-  }
+  },
 }

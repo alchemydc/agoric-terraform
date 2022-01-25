@@ -156,41 +156,30 @@ variable "stackdriver_logging_metrics" {
 
   default = {
 
-    tf_eth_handshake_failed = {
-      description = "Ethereum peer handshake failed"
-       filter      = "resource.type=gce_instance AND \"Ethereum handshake failed\""
+    tf_executed_block = {
+      description = "Executed block"
+       filter      = "resource.type=gce_instance AND \"executed block\""
+    }
+    
+    tf_inbound_peer_rejected_auth_failure = {
+      description = "Inbound peer rejected due to auth failure"
+       filter      = "resource.type=gce_instance AND \"Inbound Peer rejected\" AND \"auth failure: secret conn failed\" OR \"auth failure: handshake failed\""
     }
 
-    tf_eth_genesis_mismatch = {
-      description = "Client with different genesis block attempted connection"
-      filter      = "resource.type=gce_instance AND \"Genesis mismatch\""
+    tf_inbound_peer_rejected_filtered = {
+      description = "Inbound peer rejected due to filtered [eg duplicate conn]"
+       filter      = "resource.type=gce_instance AND \"Inbound Peer rejected\" AND \"filtered CONN\" AND \"duplicate CONN\""
     }
 
-    tf_eth_block_ingested = {
-      description = "Ethereum block(s) ingested"
-      filter      = "resource.type=gce_instance AND \"blocks\" AND \"Imported new chain segment\""
+    tf_consensus_timeouts = {
+      description = "Time out from consensus module"
+       filter      = "resource.type=gce_instance AND \"Timed out\" AND \"consensus\""
     }
 
-    # note that this log isn't firing anymore on successfully proposing a block (on 1.1.0) FIXME
-    tf_eth_block_mined = {
-      description = "Block mined"
-      filter = "resource.type=gce_instance AND \"Successfully sealed new block\""
-    }
-
-    tf_eth_block_signed = {
-      description = "Block signed"
-      filter = "resource.type=gce_instance AND \"Commit new mining work\""
-    }
-
-    tf_eth_commit_old_block = {
-      description = "Committed seal on old block"
-      filter = "resource.type=gce_instance AND \"Would have sent a commit message for an old block\""
-    }
-
-    tf_validator_not_elected = {
-      description = "Validator failed to be elected"
-      filter = "resource.type=gce_instance \"Validator Election Results\" AND \"\\\"elected\\\":\\\"false\\\"\" AND NOT \"tx-node\""
-    }
+    #tf_validator_not_elected = {
+    #  description = "Validator failed to be elected"
+    #  filter = "resource.type=gce_instance \"Validator Election Results\" AND \"\\\"elected\\\":\\\"false\\\"\" AND NOT \"tx-node\""
+    #}
 
   }
 }

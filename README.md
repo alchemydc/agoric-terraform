@@ -80,13 +80,15 @@ Support for GCP's Stackdriver platform has been enabled, which makes it easy to 
 
   Apple Mac arm64 (M1) users presently will not be able to use Terraform to deploy infrastructure on GCP until the arm64 release of this provider is cut, which is expected any day now (as of 29 March 2021)
 
+## Stackdriver Monitoring Dashboard
+There presently is no support for creating Stackdriver monitoring dashboards via Terraform So instead we have use the gcloud cli to import the dashboard from a json file
+
+`gcloud monitoring dashboards create --config-from-file=dashboards/hud.json`
+
 ## Known Issues
-* The backup node is provisioned sufficiently to sync the Agoric chain, but the backup/restore of chaindata functionality isn't yet working.  In addition to the operator key mnemonic, it's also critical to backup config/node_key.json and config/priv_validator_key.json, which can presently be done manually by running `/root/backup_rsync.sh`
-* The google-fluent package appears to get clobbered by something in the Agoric toolchain, and needs to be reinstalled post-provision in order for Stackdriver logging to work.
-* Firewall is created in GCP VPC.  Host baesd rules (nftables) are also created (to /etc/nftables.conf) but aren't activated by default.
-* Key management (backup/restore/etc) is not yet implemented.
+* Firewall is created in GCP VPC.  Host based rules (nftables) are also created (to /etc/nftables.conf) are and now activated by default, so check these if you're having weird issues.
+* Consensus Key management (backup/restore/etc) is now implemented naively via shell scripts and rsync.  For production usage use a [KMS](https://github.com/iqlusioninc/tmkms?utm_source=pocket_mylist)
 * Secrets management is not yet implmemented.  For now sensitive data is stored locally in terraform.tfvars, so it's not checked into git.  However, any secrets will be in the clear in the instance metadata, which is suboptimal.  Longer term we should look at Vault or similar for secrets management.
-* The agoric daemon outputs colorized syslog data!  This is a nightmare for log indexing/alerting/searching/etc.  Workaround to render the ANSI codes as colors in the logs is syslog escapes is `echo '$EscapeControlCharactersOnReceive off' >> /etc/rsyslog.conf && systemctl restart rsyslog` (ugly!)
 
 
 ## Cheatsheet
