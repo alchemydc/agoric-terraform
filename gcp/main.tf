@@ -32,7 +32,7 @@ data "google_compute_subnetwork" "agoric_subnetwork" {
 }
 
 resource "google_compute_router" "router" {
-  name    = "${var.agoric_env}-celo-router"
+  name    = "${var.agoric_env}-agoric-router"
   region  = data.google_compute_subnetwork.agoric_subnetwork.region
   network = google_compute_network.agoric_network.self_link
 

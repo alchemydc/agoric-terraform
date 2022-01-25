@@ -47,7 +47,8 @@ resource "google_compute_firewall" "agoric_p2p_firewall" {
   network = var.network_name
 
   target_tags = concat(local.firewall_target_tags_validator, local.firewall_target_tags_backup_node)
-
+  
+  # permit tcp/26656 from anywhere (cosmos p2p gossip protocol)
   allow {
     protocol = "tcp"
     ports    = ["26656"]
@@ -59,6 +60,9 @@ resource "google_compute_firewall" "agoric_rpc_firewall" {
   network = var.network_name
 
   target_tags = concat(local.firewall_target_tags_backup_node)
+
+  # permit connections to RPC only from the VPC
+  source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range])
 
   allow {
     protocol = "tcp"
@@ -73,18 +77,23 @@ resource "google_compute_firewall" "agoric_telemetry_firewall" {
   target_tags = concat(local.firewall_target_tags_validator, local.firewall_target_tags_backup_node)
 
   # allow connections to the prometheus ports from the VPC as well as from prometheus.testnet.agoric.net
-  
-  source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range], ["142.93.181.215/32"])
+  #source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range], ["142.93.181.215/32"])
+  source_ranges = concat([data.google_compute_subnetwork.agoric.ip_cidr_range])
 
+  # otel / swingset telemetry 
+  # see https://github.com/Agoric/agoric-sdk/blob/master/packages/cosmic-swingset/README-telemetry.md
   allow {
     protocol = "tcp"
     ports    = ["9464"]
   }
 
+  # ag0 prometheus port (for monitoring)
   allow {
     protocol = "tcp"
     ports    = ["26660"]
   }
+
+  # prometheus exporter
   allow {
     protocol = "tcp"
     ports    = ["9100"]
