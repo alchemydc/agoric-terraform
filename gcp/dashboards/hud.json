@@ -40,70 +40,19 @@
       {
         "height": 4,
         "widget": {
-          "title": "Disk Utilization",
-          "xyChart": {
-            "chartOptions": {
-              "mode": "COLOR"
-            },
-            "dataSets": [
-              {
-                "minAlignmentPeriod": "60s",
-                "plotType": "LINE",
-                "targetAxis": "Y1",
-                "timeSeriesQuery": {
-                  "timeSeriesFilter": {
-                    "aggregation": {
-                      "alignmentPeriod": "60s",
-                      "perSeriesAligner": "ALIGN_MEAN"
-                    },
-                    "filter": "metric.type=\"agent.googleapis.com/disk/percent_used\" resource.type=\"gce_instance\" metric.label.\"state\"=\"used\""
-                  }
-                }
-              }
-            ],
-            "timeshiftDuration": "0s",
-            "yAxis": {
-              "label": "y1Axis",
-              "scale": "LINEAR"
-            }
+          "alertChart": {
+            "name": "projects/agoric-mainnet/alertPolicies/9733844825376667179"
           }
         },
         "width": 6,
-        "yPos": 8
+        "xPos": 6,
+        "yPos": 4
       },
       {
         "height": 4,
         "widget": {
-          "title": "Blocks Executed",
-          "xyChart": {
-            "chartOptions": {
-              "mode": "COLOR"
-            },
-            "dataSets": [
-              {
-                "minAlignmentPeriod": "60s",
-                "plotType": "LINE",
-                "targetAxis": "Y1",
-                "timeSeriesQuery": {
-                  "timeSeriesFilter": {
-                    "aggregation": {
-                      "alignmentPeriod": "60s",
-                      "perSeriesAligner": "ALIGN_RATE"
-                    },
-                    "filter": "metric.type=\"logging.googleapis.com/user/tf_executed_block\" resource.type=\"gce_instance\" metadata.user_labels.\"role\"=\"validator\"",
-                    "secondaryAggregation": {
-                      "alignmentPeriod": "60s",
-                      "perSeriesAligner": "ALIGN_MEAN"
-                    }
-                  }
-                }
-              }
-            ],
-            "timeshiftDuration": "0s",
-            "yAxis": {
-              "label": "y1Axis",
-              "scale": "LINEAR"
-            }
+          "alertChart": {
+            "name": "projects/agoric-mainnet/alertPolicies/12922333877851347277"
           }
         },
         "width": 6
@@ -144,7 +93,8 @@
           }
         },
         "width": 6,
-        "xPos": 6
+        "xPos": 6,
+        "yPos": 8
       },
       {
         "height": 2,
@@ -167,8 +117,7 @@
           "title": "Validator Boot Disk Utilization"
         },
         "width": 3,
-        "xPos": 6,
-        "yPos": 4
+        "yPos": 10
       },
       {
         "height": 2,
@@ -191,8 +140,8 @@
           "title": "Validator Data Disk Utilization"
         },
         "width": 3,
-        "xPos": 6,
-        "yPos": 6
+        "xPos": 3,
+        "yPos": 10
       },
       {
         "height": 2,
@@ -215,8 +164,7 @@
           "title": "Validator Swap Utilization"
         },
         "width": 3,
-        "xPos": 9,
-        "yPos": 4
+        "yPos": 8
       },
       {
         "height": 4,
@@ -255,7 +203,7 @@
         },
         "width": 6,
         "xPos": 6,
-        "yPos": 8
+        "yPos": 12
       },
       {
         "height": 4,
@@ -332,7 +280,7 @@
         },
         "width": 6,
         "xPos": 6,
-        "yPos": 12
+        "yPos": 16
       },
       {
         "height": 4,
@@ -371,6 +319,64 @@
         },
         "width": 6,
         "yPos": 16
+      },
+      {
+        "height": 2,
+        "widget": {
+          "scorecard": {
+            "gaugeView": {
+              "upperBound": 100.0
+            },
+            "timeSeriesQuery": {
+              "timeSeriesFilter": {
+                "aggregation": {
+                  "alignmentPeriod": "60s",
+                  "crossSeriesReducer": "REDUCE_MEAN",
+                  "perSeriesAligner": "ALIGN_MEAN"
+                },
+                "filter": "metric.type=\"agent.googleapis.com/memory/percent_used\" resource.type=\"gce_instance\" metric.label.\"state\"=\"used\" metadata.user_labels.\"role\"=\"validator\""
+              }
+            }
+          },
+          "title": "Validator Memory Utilization"
+        },
+        "width": 3,
+        "xPos": 3,
+        "yPos": 8
+      },
+      {
+        "height": 4,
+        "widget": {
+          "title": "Validator Memory Utilization",
+          "xyChart": {
+            "chartOptions": {
+              "mode": "COLOR"
+            },
+            "dataSets": [
+              {
+                "minAlignmentPeriod": "60s",
+                "plotType": "STACKED_AREA",
+                "targetAxis": "Y1",
+                "timeSeriesQuery": {
+                  "timeSeriesFilter": {
+                    "aggregation": {
+                      "alignmentPeriod": "60s",
+                      "perSeriesAligner": "ALIGN_MEAN"
+                    },
+                    "filter": "metric.type=\"agent.googleapis.com/memory/percent_used\" metric.label.\"state\"=\"used\""
+                  }
+                }
+              }
+            ],
+            "timeshiftDuration": "0s",
+            "yAxis": {
+              "label": "y1Axis",
+              "scale": "LINEAR"
+            }
+          }
+        },
+        "width": 6,
+        "xPos": 6
       }
     ]
   },
