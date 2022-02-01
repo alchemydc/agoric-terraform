@@ -106,7 +106,7 @@ There presently is no support for creating Stackdriver monitoring dashboards via
 * expand disk to accomodate ever growing blockchain:
   * `gcloud compute disks resize $DISK_NAME --size 300G --region $REGION` 
   * on node: `sudo resize2fs /dev/sdb` 
-
+* See how much voting power has supported an upgrade: `agoric@agoric-mainnet-validator-0:~$ curl -s localhost:26657/consensus_state | jq -r ".result.round_state.height_vote_set[0].prevotes_bit_array"`
 
 ## Credit
 To [Javier Cortejoso](https://github.com/jcortejoso) at Clabs who created the [framework](https://github.com/alchemydc/celo-monorepo/tree/master/packages/terraform-modules-public) upon which this code is based.
