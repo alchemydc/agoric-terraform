@@ -17,7 +17,7 @@ variable replicas {
 
   default = {
     validator           = 1
-    backup_node         = 1
+    backup_node         = 0
   }
 }
 
@@ -79,7 +79,7 @@ variable agoric_node_release {
 
   default = {
     repository = "https://github.com/Agoric/ag0"
-    tag        = "agoric-3.1"
+    tag        = "agoric-upgrade-5"
   }
 }
 
