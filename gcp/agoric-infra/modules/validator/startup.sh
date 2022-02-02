@@ -443,8 +443,8 @@ then
     echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting rsync restore" | logger
   fi
 EOF
+chown agoric:agoric /home/agoric/restore_rsync.sh
 chmod u+x /home/agoric/restore_rsync.sh
-
 
 # ---- Create backup validator keys script to GCS/rsync script
 echo "Creating validator keys and config backup script" | logger
@@ -479,14 +479,14 @@ if [ $? -eq 0 ]
 then
   #validator keys exists in bucket
   echo "backing up existing validator keys..." | logger
-  mkdir $WORKING_DIR/validator_backup
+  mkdir -vp $WORKING_DIR/validator_backup
   tar zcvf $WORKING_DIR/validator_backup/validator_backup_$(date +%F_%R) $WORKING_DIR/config/priv_validator_key.json $WORKING_DIR/config/node_key.json $WORKING_DIR/data/priv_validator_state.json
   echo "downloading validator keys from $BUCKET_URI" | logger
   mkdir -vp $WORKING_DIR/config
   mkdir -vp $WORKING_DIR/data
-  gsutil cp $BUCKET_URI/config/priv_validator_key.json $WORKING_DIR/config/
-  gsutil cp $BUCKET_URI/config/node_key.json $WORKING_DIR/config/
-  gsutil cp $BUCKET_URI/data/priv_validator_state.json $WORKING_DIR/data/
+  gsutil -m cp $BUCKET_URI/config/priv_validator_key.json $WORKING_DIR/config/
+  gsutil -m cp $BUCKET_URI/config/node_key.json $WORKING_DIR/config/
+  gsutil -m cp $BUCKET_URI/priv_validator_state.json $WORKING_DIR/data/
   echo "do not forget to restart ag0 after importing keys, with 'systemctl restart ag0'"
   else
     echo "No validator keys found in bucket $BUCKET_URI, aborting restore" | logger

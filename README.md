@@ -99,7 +99,6 @@ There presently is no support for creating Stackdriver monitoring dashboards via
 * Unjail your validator: `ag0 tx slashing unjail --broadcast-mode=block --from=$YOUR_agoric1address --chain-id=agorictest-9 --gas=auto --gas-adjustment=1.4`
 * Run the node interactively (rather than from systemd): `ag-chain-cosmos start --log_level=info`
 * See remote peers: `curl -s 127.0.0.1:26657/net_info | jq .result.peers | grep remote`
-* Consensus black magic: `curl -s localhost:26657/consensus_state | jq '.result.round_state.height_vote_set[0].prevotes_bit_array'`
 * Check your balance: `ag0 query bank balances `ag0 keys show -a $YOUR_KEY_NAME`
 * Send funds: `ag-chain-cosmos tx bank send --chain-id agorictest-9 --keyring-dir ~/.ag0 "$FROM_KEY_NAME" "$TO_KEY_NAME" 1uagstake
 * Edit your validator details after creation: `ag0 tx staking edit-validator --from "$KEY_NAME" --chain-id "agorictest-9" --moniker "YourValidatorMoniker" --website "https://yoursite.org" --details "your_details" --keyring-dir ~/.ag0/
