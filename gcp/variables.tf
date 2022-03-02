@@ -16,8 +16,8 @@ variable replicas {
   type        = map(number)
 
   default = {
-    validator           = 1
-    backup_node         = 0
+    validator           = 0
+    backup_node         = 1
   }
 }
 
@@ -26,10 +26,20 @@ variable instance_types {
   type        = map(string)
 
   default = {
-    validator           = "t2d-standard-1"
+    validator           = "n2d-standard-2"
+    #backup_node         = "e2-medium"
+    #backup_node         = "t2d-standard-1"
+    #backup_node         = "n2d-standard-2"
     backup_node         = "t2d-standard-1"
   }
 }
+
+# e2-medium: 2vCPU, 4G RAM: $26mo [shared cpu]
+# t2d-standard-1: 1vCPU, 4G RAM: $32/mo [dedicated EPYC cpu]
+# t2d-standard-2: 2vCPU, 8G RAM: $63/mo [dedicated EPYC cpu]
+# n2d-standard-2: 2vCPU, 8G RAM: $51/mo [dedicated EPYC cpu]
+# note no n2d-standard-1 available
+
 
 variable "boot_disk_size" { 
   type = number

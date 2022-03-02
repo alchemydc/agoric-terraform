@@ -25,10 +25,16 @@ resource "google_compute_address" "backup_node_internal" {
 resource "google_compute_disk" "backup_node" {
   name  = "${local.name_prefix}-agoric-data-disk-${count.index}"
   count = var.backup_node_count
-  type = "pd-standard"      # use type = "pd-ssd" if I/O performance is insufficient
+  #type = "pd-standard"      # use type = "pd-ssd" if I/O performance is insufficient
+  type = "pd-balanced"      # use type = "pd-ssd" if I/O performance is insufficient
   size                      = var.data_disk_size
   physical_block_size_bytes = 4096
 }
+
+# us-central-1 pricing as of march 2022
+#Standard provisioned space	$0.040 per GB
+#SSD provisioned space	$0.170 per GB
+#Balanced provisioned space	$0.100 per GB
 
 resource "google_compute_instance" "backup_node" {
   name         = "${local.name_prefix}-${count.index}"

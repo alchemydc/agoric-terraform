@@ -24,6 +24,7 @@ cat <<'EOF' > '/etc/logrotate.d/rsyslog'
 /var/log/cron.log
 /var/log/debug
 /var/log/messages
+/var/log/google-cloud-ops-agent/subagents/logging-module.log
 {
         rotate 3
         daily
@@ -586,3 +587,11 @@ chmod u+x /home/agoric/restore_chaindata_rsync.sh
 chown agoric:agoric /home/agoric/restore_chaindata_rsync.sh
 
 
+# fix vim for agoric user
+echo "Configuring vim" | logger
+cat <<'EOF' >> '/home/agoric/.vimrc'
+set mouse-=a
+syntax on
+set background=dark
+EOF
+chown agoric:agoric /home/agoric/.vimrc
