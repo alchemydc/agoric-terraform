@@ -25,7 +25,8 @@ resource "google_compute_address" "validator_internal" {
 
 resource "google_compute_disk" "validator-tmp" {
   name = "${local.attached_disk_name}-${count.index}"
-  type = "pd-standard"    # use type = "pd-ssd" if I/O performance is insufficient
+  #type = "pd-standard"    # use type = "pd-ssd" if I/O performance is insufficient   # too slow
+  type = "pd-balanced"      # use type = "pd-ssd" if I/O performance is insufficient
   size = var.data_disk_size
   snapshot = "${local.snapshot}"
   count = var.validator_count
@@ -35,7 +36,6 @@ resource "google_compute_instance" "validator" {
   name         = "${local.name_prefix}-${count.index}"
   machine_type = var.instance_type
 
-  #deletion_protection = true
   deletion_protection = false
 
   count = var.validator_count

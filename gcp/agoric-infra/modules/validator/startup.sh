@@ -24,6 +24,7 @@ cat <<'EOF' > '/etc/logrotate.d/rsyslog'
 /var/log/cron.log
 /var/log/debug
 /var/log/messages
+/var/log/google-cloud-ops-agent/subagents/logging-module.log
 {
         rotate 3
         daily
@@ -273,6 +274,9 @@ sed -i.bak "s/^moniker = .*/moniker = \"${validator_name}\"/" $DATA_DIR/config/c
 
 echo "Updating external_address to tcp://${validator_external_address}:26656 in config.toml" | logger
 sed -i.bak "s/^external_address = .*/external_address = \"tcp:\/\/${validator_external_address}:26656\"/" $DATA_DIR/config/config.toml
+
+echo "Disabling exchange reactor [p2p discovery] in config.toml" | logger
+sed -i.bak "s/^pex = true/pex = false/" $DATA_DIR/config/config.toml
 
 # agoric SDK not yet enabled, so skipping
 #echo "Install and build Agoric Javascript packages" | logger
