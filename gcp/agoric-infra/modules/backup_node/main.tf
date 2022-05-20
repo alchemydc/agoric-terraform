@@ -87,6 +87,7 @@ labels = {
       validator_name : var.validator_name,
       backup_node_name : var.backup_node_name,
       gcloud_project : var.gcloud_project,
+      gcloud_backup_project : var.gcloud_backup_project,
       gcloud_zone : var.gcloud_zone,
       reset_chain_data : var.reset_chain_data,
       rid : count.index,

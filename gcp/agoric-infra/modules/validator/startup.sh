@@ -393,15 +393,15 @@ echo "Starting chaindata restore from GCS tarball" | logger
 
 ## test to see if chaindata exists in bucket
 echo "Checking for presence of chaindata tarball in GCS" | logger
-gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
+gsutil -q stat gs://${gcloud_backup_project}-chaindata/chaindata.tgz
 if [ $? -eq 0 ]
 then
   #chaindata exists in bucket
   echo "Found chaindata tarball in GCS" | logger
   mkdir -p $WORKING_DIR/restore
   mkdir -p $WORKING_DIR/data  
-  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
-  gsutil cp gs://${gcloud_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
+  echo "downloading chaindata from gs://${gcloud_backup_project}-chaindata/chaindata.tgz" | logger
+  gsutil cp gs://${gcloud_backup_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
   echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
   sudo $SYSTEMCTL stop ag0.service
   sleep 5
@@ -413,7 +413,7 @@ then
   echo "Starting agoric p2p/consensus daemon" | logger
   sudo $SYSTEMCTL start ag0.service
   else
-    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting restore" | logger
+    echo "No chaindata.tgz found in bucket gs://${gcloud_backup_project}-chaindata, aborting restore" | logger
   fi
 EOF
 chown agoric:agoric /home/agoric/restore_chaindata.sh
@@ -429,22 +429,22 @@ WORKING_DIR='/home/agoric/.agoric'
 SYSTEMCTL='/usr/bin/systemctl'
 
 # test to see if chaindata exists in the rsync chaindata bucket
-gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
+gsutil -q stat gs://${gcloud_backup_project}-chaindata-rsync/data/priv_validator_state.json
 if [ $? -eq 0 ]
 then
   #chaindata exists in bucket
   echo "stopping agoric p2p/consensus daemon to rsync chaindata" | logger
   sudo $SYSTEMCTL stop ag0.service
   # do not download validator keys by default (yet)
-  echo "downloading chaindata via rsync from gs://${gcloud_project}-chaindata-rsync/data" | logger
+  echo "downloading chaindata via rsync from gs://${gcloud_backup_project}-chaindata-rsync/data" | logger
   mkdir -p $WORKING_DIR/data
-  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data $WORKING_DIR/data
+  gsutil -m rsync -d -r gs://${gcloud_backup_project}-chaindata-rsync/data $WORKING_DIR/data
   echo "restarting ag0" | logger
   sleep 5
   echo "Starting agoric p2p/consensus daemon" | logger
   sudo $SYSTEMCTL start ag0.service
   else
-    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting rsync restore" | logger
+    echo "No chaindata found in bucket gs://${gcloud_backup_project}-chaindata-rsync, aborting rsync restore" | logger
   fi
 EOF
 chown agoric:agoric /home/agoric/restore_rsync.sh
@@ -458,7 +458,7 @@ set -ex
 
 WORKING_DIR='/home/agoric/.agoric'
 SYSTEMCTL='/usr/bin/systemctl'
-BUCKET_URI="gs://${gcloud_project}-validator-config/"
+BUCKET_URI="gs://${gcloud_backup_project}-validator-config/"
 
 # unclear whether or not ag0 needs to be stopped to back these keys up properly
 gsutil -m cp -vr $WORKING_DIR/config $BUCKET_URI
@@ -475,7 +475,7 @@ set -ex
 
 WORKING_DIR='/home/agoric/.agoric'
 SYSTEMCTL='/usr/bin/systemctl'
-BUCKET_URI="gs://${gcloud_project}-validator-config"
+BUCKET_URI="gs://${gcloud_backup_project}-validator-config"
 
 # test to see if validator keys exist in the validator-config bucket
 gsutil -q stat $BUCKET_URI/config/priv_validator_key.json

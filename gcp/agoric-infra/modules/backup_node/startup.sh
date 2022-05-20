@@ -281,6 +281,13 @@ if [ -e "\$DATA_DIR/data/blockstore.db" ]; then
   echo "Updating external_address to 'tcp://${backup_node_external_address}:26656' in config.toml" | logger
   sed -i.bak "s/^external_address = .*/external_address = \"tcp:\/\/${backup_node_external_address}:26656\"/" \$DATA_DIR/config/config.toml
   echo "Skipping download of genesis.json and ag0 unsafe-reset-all"
+  echo "Configuring pruning strategy for better disk utilization" | logger
+  sed -i.bak -e "s/^indexer *=.*/indexer = \""null"\"/" $DATA_DIR/config/config.toml
+  rm -f $DATA_DIR/data/tx_index.db/*
+  sed -i.bak -e "s/^pruning *=.*/pruning = \""custom"\"/" $DATA_DIR/config/app.toml
+  sed -i.bak -e "s/^pruning-keep-recent *=.*/pruning-keep-recent = \""100"\"/" $DATA_DIR/config/app.toml
+  sed -i.bak -e "s/^pruning-keep-every *=.*/pruning-keep-every = \""0"\"/" $DATA_DIR/config/app.toml
+  sed -i.bak -e "s/^pruning-interval *=.*/pruning-interval = \""10"\"/" $DATA_DIR/config/app.toml
   exit 0;
 fi
 
@@ -311,8 +318,15 @@ sed -i.bak -e "s/^seeds *=.*/seeds = \$seeds/; s/^persistent_peers *=.*/persiste
 echo "Setting publicly reachable p2p addr in config.toml"
 echo "Updating external_address to \"tcp://${backup_node_external_address}:26656\" in config.toml" | logger
 sed -i.bak "s/^external_address = .*/external_address = \"tcp:\/\/${backup_node_external_address}:26656\"/" \$DATA_DIR/config/config.toml
-echo "Setting fastsync to v2 in config.toml" | logger
-sed -i.bak 's/^version = "v[0-1]"/version = "v2"/' \$DATA_DIR/config/config.toml
+#echo "Setting fastsync to v2 in config.toml" | logger
+#sed -i.bak 's/^version = "v[0-1]"/version = "v2"/' \$DATA_DIR/config/config.toml
+echo "Configuring pruning strategy for better disk utilization" | logger
+sed -i.bak -e "s/^indexer *=.*/indexer = \""null"\"/" $DATA_DIR/config/config.toml
+rm -f $DATA_DIR/data/tx_index.db/*
+sed -i.bak -e "s/^pruning *=.*/pruning = \""custom"\"/" $DATA_DIR/config/app.toml
+sed -i.bak -e "s/^pruning-keep-recent *=.*/pruning-keep-recent = \""100"\"/" $DATA_DIR/config/app.toml
+sed -i.bak -e "s/^pruning-keep-every *=.*/pruning-keep-every = \""0"\"/" $DATA_DIR/config/app.toml
+sed -i.bak -e "s/^pruning-interval *=.*/pruning-interval = \""10"\"/" $DATA_DIR/config/app.toml
 EOF
 
 chmod u+x /home/agoric/configure_agoric.sh
@@ -441,8 +455,8 @@ echo "Tarring up chaindata to $WORKING_DIR/backup/chaindata.tgz" | logger
 #tar -I "pigz --fast" -C $WORKING_DIR -cvf $WORKING_DIR/backup/chaindata.tgz data config
 tar -I "pigz --fast" -C $WORKING_DIR -cvf $WORKING_DIR/backup/chaindata.tgz data
 
-echo "Copying tarball to GCS bucket gs://${gcloud_project}-chaindata" | logger
-gsutil -m cp $WORKING_DIR/backup/chaindata.tgz gs://${gcloud_project}-chaindata
+echo "Copying tarball to GCS bucket gs://${gcloud_backup_project}-chaindata" | logger
+gsutil -m cp $WORKING_DIR/backup/chaindata.tgz gs://${gcloud_backup_project}-chaindata
 
 echo "Removing tarball from local fs" | logger
 rm -f $WORKING_DIR/backup/chaindata.tgz
@@ -467,7 +481,7 @@ echo "Starting rsync chaindata backup" | logger
 sudo $SYSTEMCTL stop ag0.service
 sleep 5
 echo "Backing up chaindata via rsync" | logger
-gsutil -m rsync -d -r $WORKING_DIR/data  gs://${gcloud_project}-chaindata-rsync/data
+gsutil -m rsync -d -r $WORKING_DIR/data  gs://${gcloud_backup_project}-chaindata-rsync/data
 echo "rsync chaindata backup completed" | logger
 sleep 3
 sudo $SYSTEMCTL start ag0.service
@@ -530,15 +544,15 @@ echo "Starting chaindata restore from GCS tarball" | logger
 
 ## test to see if chaindata exists in bucket
 echo "Checking for presence of chaindata tarball in GCS" | logger
-gsutil -q stat gs://${gcloud_project}-chaindata/chaindata.tgz
+gsutil -q stat gs://${gcloud_backup_project}-chaindata/chaindata.tgz
 if [ $? -eq 0 ]
 then
   #chaindata exists in bucket
   echo "Found chaindata tarball in GCS" | logger
   mkdir -p $WORKING_DIR/restore
   mkdir -p $WORKING_DIR/data  
-  echo "downloading chaindata from gs://${gcloud_project}-chaindata/chaindata.tgz" | logger
-  gsutil -m cp gs://${gcloud_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
+  echo "downloading chaindata from gs://${gcloud_backup_project}-chaindata/chaindata.tgz" | logger
+  gsutil -m cp gs://${gcloud_backup_project}-chaindata/chaindata.tgz $WORKING_DIR/restore/chaindata.tgz
   echo "stopping agoric p2p/consensus daemon to untar chaindata" | logger
   sudo $SYSTEMCTL stop ag0.service
   sleep 5
@@ -550,7 +564,7 @@ then
   echo "Starting agoric p2p/consensus daemon" | logger
   sudo $SYSTEMCTL start ag0.service
   else
-    echo "No chaindata.tgz found in bucket gs://${gcloud_project}-chaindata, aborting restore" | logger
+    echo "No chaindata.tgz found in bucket gs://${gcloud_backup_project}-chaindata, aborting restore" | logger
   fi
 EOF
 chown agoric:agoric /home/agoric/restore_chaindata_tarball.sh
@@ -566,21 +580,21 @@ WORKING_DIR='/home/agoric/.agoric'
 SYSTEMCTL='/usr/bin/systemctl'
 
 # test to see if chaindata exists in the rsync chaindata bucket
-gsutil -q stat gs://${gcloud_project}-chaindata-rsync/data/priv_validator_state.json
+gsutil -q stat gs://${gcloud_backup_project}-chaindata-rsync/data/priv_validator_state.json
 if [ $? -eq 0 ]
 then
   #chaindata exists in bucket
   echo "stopping agoric p2p/consensus daemon to rsync chaindata" | logger
   sudo $SYSTEMCTL stop ag0.service
-  echo "downloading blockchain data via rsync from gs://${gcloud_project}-chaindata-rsync/data" | logger
+  echo "downloading blockchain data via rsync from gs://${gcloud_backup_project}-chaindata-rsync/data" | logger
   mkdir -p $WORKING_DIR/data
-  gsutil -m rsync -d -r gs://${gcloud_project}-chaindata-rsync/data $WORKING_DIR/data
+  gsutil -m rsync -d -r gs://${gcloud_backup_project}-chaindata-rsync/data $WORKING_DIR/data
   echo "restarting ag0.service" | logger
   sleep 5
   echo "Starting agoric p2p/consensus daemon" | logger
   sudo $SYSTEMCTL start ag0.service
   else
-    echo "No chaindata found in bucket gs://${gcloud_project}-chaindata-rsync, aborting warp restore" | logger
+    echo "No chaindata found in bucket gs://${gcloud_backup_project}-chaindata-rsync, aborting warp restore" | logger
   fi
 EOF
 chmod u+x /home/agoric/restore_chaindata_rsync.sh

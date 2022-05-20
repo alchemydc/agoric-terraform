@@ -33,6 +33,7 @@ gcloud.env
 
 # terraform artifacts
 backend.tf
+backend.tf*
 iam.txt
 .terraform.lock.hcl
 terraform.tfvars

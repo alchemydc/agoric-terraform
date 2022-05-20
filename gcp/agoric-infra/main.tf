@@ -106,6 +106,7 @@ module "backup_node" {
   block_time                            = var.block_time
   agoric_env                            = var.agoric_env
   gcloud_project                        = var.gcloud_project
+  gcloud_backup_project                 = var.gcloud_backup_project
   gcloud_zone                           = var.gcloud_zone
   instance_type                         = var.instance_types["backup_node"]
   boot_disk_size                        = var.boot_disk_size
@@ -129,6 +130,7 @@ module "validator" {
   block_time                            = var.block_time
   agoric_env                            = var.agoric_env
   gcloud_project                        = var.gcloud_project
+  gcloud_backup_project                 = var.gcloud_backup_project
   instance_type                         = var.instance_types["validator"]
   boot_disk_size                        = var.boot_disk_size
   data_disk_size                        = var.data_disk_size

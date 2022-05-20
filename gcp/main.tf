@@ -59,6 +59,7 @@ module "agoric_cluster" {
   network_depends_on = [google_compute_network.agoric_network]
 
   gcloud_project          = var.google["project"]
+  gcloud_backup_project   = var.backup_project
   gcloud_region           = var.google["region"]
   gcloud_zone             = var.google["zone"]
   network_name            = google_compute_network.agoric_network.name

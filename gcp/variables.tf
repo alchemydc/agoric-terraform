@@ -11,12 +11,19 @@ variable google {
   }
 }
 
+# backup project is useful to have a single backup system that supports multiple validator/proxy/attestation projects
+variable backup_project {
+  description = "GCP backup project"
+  type = string
+  default = "MY_BACKUP_PROJECT_NAME"
+}
+
 variable replicas {
   description = "The replica number for each component"
   type        = map(number)
 
   default = {
-    validator           = 1
+    validator           = 0
     backup_node         = 1
   }
 }

@@ -13,6 +13,11 @@ variable gcloud_project {
   description = "Name of the Google Cloud project to use"
 }
 
+variable gcloud_backup_project {
+  type        = string
+  description = "Name of the Google Cloud backup project to use"
+}
+
 variable instance_type {
   description = "The instance type"
   type        = string

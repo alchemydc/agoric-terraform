@@ -81,6 +81,7 @@ resource "google_compute_instance" "validator" {
       network_id : var.network_id,
       validator_name : var.validator_name,
       gcloud_project : var.gcloud_project,
+      gcloud_backup_project : var.gcloud_backup_project,
       reset_chain_data : var.reset_chain_data,
       rid : count.index,
       prometheus_exporter_tarball : var.prometheus_exporter_tarball,

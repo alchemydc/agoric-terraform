@@ -13,6 +13,12 @@ variable gcloud_project {
   description = "Name of the Google Cloud project to use"
 }
 
+variable gcloud_backup_project {
+  description = "GCP backup project"
+  type = string
+  default = "MY_BACKUP_PROJECT_NAME"
+}
+
 variable instance_types {
   description = "The instance type for each component"
   type        = map(string)
