@@ -6,7 +6,7 @@ export HOME="/root"
 echo "Updating packages" | logger
 apt update && apt -y upgrade
 echo "Installing needed packages" | logger
-apt install -y htop screen wget pigz file 
+apt install -y htop screen wget pigz file curl
 
 # ---- Configure logrotate ----
 echo "Configuring logrotate" | logger
