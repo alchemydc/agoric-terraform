@@ -24,7 +24,7 @@ variable replicas {
 
   default = {
     validator           = 0
-    backup_node         = 1
+    backup_node         = 0
   }
 }
 
