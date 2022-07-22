@@ -23,7 +23,7 @@ variable replicas {
   type        = map(number)
 
   default = {
-    validator           = 0
+    validator           = 1
     backup_node         = 0
   }
 }
@@ -58,7 +58,7 @@ variable "boot_disk_size" {
 variable "data_disk_size" { 
   type = number
   description = "Size (in GB) of the persistent data disk used for all instances"
-  default = 250
+  default = 100
 }
 
 variable "cloud_image" {
@@ -225,4 +225,10 @@ variable prometheus_exporter_tarball {
   type        = string
   description = "URI to download the prometheus node exporter from"
   default = "https://github.com/prometheus/node_exporter/releases/download/v1.1.2/node_exporter-1.1.2.linux-amd64.tar.gz"
+}
+
+variable ssh_public_key {
+  type = string
+  description = "SSH key to drop on terraformed GCP instance to allow ansible to then do configuration"
+  default = ""
 }

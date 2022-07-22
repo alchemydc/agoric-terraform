@@ -1,7 +1,8 @@
 locals {
-  attached_disk_name = "agoric-data-tmp"
+  #attached_disk_name = "agoric-data-tmp"
+  attached_disk_name = "agoric-data"
   name_prefix = "${var.gcloud_project}-validator"
-  snapshot = "${var.gcloud_project}-backup-node-agoric-data-disk-0-snapshot-latest" 
+  #snapshot = "${var.gcloud_project}-backup-node-agoric-data-disk-0-snapshot-latest" 
 }
 
 resource "google_compute_address" "validator" {
@@ -23,12 +24,13 @@ resource "google_compute_address" "validator_internal" {
   count = var.validator_count
 }
 
-resource "google_compute_disk" "validator-tmp" {
+resource "google_compute_disk" "validator" {
   name = "${local.attached_disk_name}-${count.index}"
   #type = "pd-standard"    # use type = "pd-ssd" if I/O performance is insufficient   # too slow
   type = "pd-balanced"      # use type = "pd-ssd" if I/O performance is insufficient
   size = var.data_disk_size
-  snapshot = "${local.snapshot}"
+  physical_block_size_bytes = 4096
+  #snapshot = "${local.snapshot}"
   count = var.validator_count
 }
 
@@ -36,7 +38,7 @@ resource "google_compute_instance" "validator" {
   name         = "${local.name_prefix}-${count.index}"
   machine_type = var.instance_type
 
-  deletion_protection = true
+  deletion_protection = false
 
   count = var.validator_count
 
@@ -57,7 +59,7 @@ resource "google_compute_instance" "validator" {
   }
 
   attached_disk {
-    source      = google_compute_disk.validator-tmp[count.index].self_link
+    source      = google_compute_disk.validator[count.index].self_link
     device_name = local.attached_disk_name
   }
 
@@ -85,7 +87,8 @@ resource "google_compute_instance" "validator" {
       reset_chain_data : var.reset_chain_data,
       rid : count.index,
       prometheus_exporter_tarball : var.prometheus_exporter_tarball,
-      validator_external_address : google_compute_address.validator[count.index].address
+      validator_external_address : google_compute_address.validator[count.index].address,
+      ssh_public_key : var.ssh_public_key
     }
   )
   

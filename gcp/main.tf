@@ -70,6 +70,7 @@ module "agoric_cluster" {
   data_disk_size          = var.data_disk_size
   cloud_image             = var.cloud_image
   service_account_scopes  = var.service_account_scopes
+  ssh_public_key          = var.ssh_public_key
 
   stackdriver_logging_exclusions = var.stackdriver_logging_exclusions
   stackdriver_logging_metrics    = var.stackdriver_logging_metrics

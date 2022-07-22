@@ -48,10 +48,10 @@ resource "google_compute_firewall" "agoric_p2p_firewall" {
 
   target_tags = concat(local.firewall_target_tags_validator, local.firewall_target_tags_backup_node)
   
-  # permit tcp/26656 from anywhere (cosmos p2p gossip protocol)
+  # permit tcp/44656 from anywhere (cosmos p2p gossip protocol)
   allow {
     protocol = "tcp"
-    ports    = ["26656"]
+    ports    = ["44656"]
   }
 }
 
@@ -66,7 +66,7 @@ resource "google_compute_firewall" "agoric_rpc_firewall" {
 
   allow {
     protocol = "tcp"
-    ports    = ["26657"]
+    ports    = ["44657"]
   }
 }
 
@@ -90,7 +90,7 @@ resource "google_compute_firewall" "agoric_telemetry_firewall" {
   # ag0 prometheus port (for monitoring)
   allow {
     protocol = "tcp"
-    ports    = ["26660"]
+    ports    = ["44660"]
   }
 
   # prometheus exporter
@@ -145,6 +145,7 @@ module "validator" {
   network_uri                           = var.network_uri
   prometheus_exporter_tarball           = var.prometheus_exporter_tarball
   service_account_scopes                = var.service_account_scopes
+  ssh_public_key                        = var.ssh_public_key
 }
 
  

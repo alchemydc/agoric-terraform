@@ -94,3 +94,8 @@ variable prometheus_exporter_tarball {
   type        = string
   description = "URI to download the prometheus node exporter from"
 }
+
+variable ssh_public_key {
+  type = string
+  description = "SSH key to drop on terraformed GCP instance to allow ansible to then do configuration"
+}
